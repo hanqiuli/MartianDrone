@@ -73,26 +73,26 @@ class Horizontal:
          N_blades = 4               # Number of blades per rotor
 
       elif 'tiltwing2' in self.config:
-         contingency = 0.2       # extra weight fraction added
+         contingency = 0.00       # extra weight fraction added
 
          empennageWF = 0.1       # empennage weight fraction of wing mass
          tiltwingWF  = 0.1       # tilting mechanism weight fraction of wing mass
-         tiltpropWF  = 0.2       # tilting mechanism weight fraction of propulsion mass
+         tiltpropWF  = 0.1       # tilting mechanism weight fraction of propulsion mass
 
          winginterf  = 0         # Wing rotor interference  (FIND PROPER SOURCE)
 
-         hoverTime   = 30        # [s] time spent hovering/converting to horizontal
+         hoverTime   = 300        # [s] time spent hovering/converting to horizontal
 
          # rotor
          N        = 2            # Number of ROTORS
          N_blades = 4            # Number of blades per rotor
       
       elif 'tiltwing4' in self.config:
-         contingency = 0.2       # extra weight fraction added
+         contingency = 0.00       # extra weight fraction added
 
          empennageWF = 0.1       # empennage weight fraction of wing mass
          tiltwingWF  = 0.1       # tilting mechanism weight fraction of wing mass
-         tiltpropWF  = 0.2       # tilting mechanism weight fraction of propulsion mass
+         tiltpropWF  = 0.1       # tilting mechanism weight fraction of propulsion mass
 
          winginterf  = 0         # Wing rotor interference  (FIND PROPER SOURCE)
 
@@ -329,9 +329,12 @@ class Horizontal:
       MaskedW = W[ValidStall]
 
       if np.all(~ValidStall):
-         print(W_rot)
          raise Exception(f"Wing loading of {self.WS_max} could not be met within S of {S_low} and {S_high},\n Wing loadings are:\n\
-         {W/S}")
+         {W/S}\n\
+         Power required (vert):\n\
+         {P_req_v}\n\
+         Power required (hor, last):\n\
+         {self.P_req_h_cache}")
 
       i_opt = ValidStall.nonzero()[0][np.argmin(MaskedW)] # converts back from masked index to global index
       S_opt = S[i_opt]
@@ -352,6 +355,7 @@ class Horizontal:
       P_req_h_r = self.P_req_h(self.CL_r, self.V_r, self.CD_r, W_opt)
 
       P_req_h   = min(P_req_h_e, P_req_h_r)
+      self.P_req_h_cache = P_req_h
 
       if P_req_h == P_req_v:
          raise NotImplementedError(f"Horizontal power required, {P_req_h}, is larger than vertical power required, {P_req_v}.\nThis case has not been covered yet")
@@ -366,7 +370,6 @@ class Horizontal:
       self.Pv_arr = np.zeros(IterMax)
 
       for i in range(IterMax):
-         print(i)
          itVals = self.iterate_step()
 
          self.S_arr [i] = itVals[0]
@@ -374,8 +377,9 @@ class Horizontal:
          self.Ph_arr[i] = itVals[2]
          self.Pv_arr[i] = itVals[3]
 
-      plt.plot(range(IterMax), [self.S_arr, self.W_arr, self.Ph_arr, self.Pv_arr])
+      plt.plot(range(IterMax), np.transpose(np.array([self.S_arr, self.W_arr, self.Ph_arr, self.Pv_arr])))
       plt.show()
+      print(itVals)
 
 
 
@@ -387,7 +391,10 @@ if __name__=="__main__":
    Sf = np.pi*2*0.3
    Cfc = 0.005
 
-   hTR = Horizontal('tiltrotor', b, 82.23, Sf, 0.7 , V_stall = 100)
-   hTW = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110)
+   hTR = Horizontal('tiltrotor', b, 82.23, Sf, 0.7 , V_stall = 100, update_b=False)
+   hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
+   hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
 
-   hTR.iteration(10000)
+   #hTR.iteration(100)
+   hTW2.iteration(100)
+   hTW4.iteration(100)
