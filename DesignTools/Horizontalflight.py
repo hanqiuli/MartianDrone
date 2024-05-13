@@ -2,9 +2,10 @@ import numpy as np
 from environment_properties import ENV
 
 class Horizontal:
-   def __init__(self, b, m_init, Sf, M_MO, V_stall, Cfc=0.005, LambdaLE=0, e_min=0.7, e_max=0.85, eta_prop=0.5, eta_power=0.6, E_spec=828000):
+   def __init__(self, config, b, m_init, Sf, M_MO, V_stall, *, Cfc=0.005, LambdaLE=0, e_min=0.7, e_max=0.85, eta_prop=0.5, eta_power=0.6, E_spec=828000, Lf=2, Rf=0.15):
       '''
       Inputs:
+         config   [-]   design configuration          string     
          b        [m]   Wingspan                      array-like
          m_init   [kg]  Initial weight sizing         float/int
          LambdaLE [rad] Leading edge sweep            float/int
@@ -17,6 +18,8 @@ class Horizontal:
          eta_prop [-]   Propeller efficiency          float/int
          eta_power[-]   Powertrain efficiency         float/int
          E_spec   [J/kg]Battery specific energy       float/int
+         Lf       [m]   Fuselage length               float/int
+         Rf       [m]   Fuselage radius               float/int
       '''
 
       # Direct assignments
@@ -30,10 +33,48 @@ class Horizontal:
       self.eta_prop  = eta_prop
       self.eta_power = eta_power
       self.E_spec    = E_spec
+      self.Lf        = Lf
+      self.Rf        = Rf
+      self.config    = config
 
       # Derived variables
       self.V_MO      = M_MO * ENV['a']
       self.eta_total = eta_prop * eta_power
+
+      if 'tiltrotor' in self.config:
+         contingency = 0.2       # extra weight fraction added
+
+         empennageWF = 0.1       # empennage weight fraction of wing mass
+         tiltwingWF  = 0         # tilting mechanism weight fraction of wing mass
+         tiltpropWF  = 0.25      # tilting mechanism weight fraction of propulsion mass
+
+         winginterf  = 0.1       # Wing rotor interference  (FIND PROPER SOURCE)
+
+         hoverTime   = 120       # [s] time spent hovering/converting to horizontal
+
+
+      elif 'tiltwing' in self.config:
+         contingency = 0.2       # extra weight fraction added
+
+         empennageWF = 0.1       # empennage weight fraction of wing mass
+         tiltwingWF  = 0.1       # tilting mechanism weight fraction of wing mass
+         tiltpropWF  = 0.2       # tilting mechanism weight fraction of propulsion mass
+
+         winginterf  = 0.1       # Wing rotor interference  (FIND PROPER SOURCE)
+
+         hoverTime   = 30        # [s] time spent hovering/converting to horizontal
+
+      else:
+         raise ValueError('Selected flight configuration is invalid,\npossible configurations are: "tiltwing", "tiltrotor"')
+
+      self.configV = {
+         'contingency': contingency,
+         'empennageWF': empennageWF,
+         'tiltwingWF' : tiltwingWF ,
+         'tiltpropWF' : tiltpropWF ,
+         'winginterf' : winginterf ,
+         'hoverTime'  : hoverTime  ,
+      }
       
 
    def GetAero(self, S):
@@ -108,7 +149,6 @@ class Horizontal:
 
       return V
    
-
    def CLrange(self, S):
       '''
          Inputs:
@@ -125,7 +165,7 @@ class Horizontal:
 
    def CLend(self, S):
       '''
-         Inputs:
+      Inputs:
          S        [m^2] Wing surface area             array-like
       Outputs:
          CL_opt_e [-]   Wing lift coefficient         array-like
@@ -136,8 +176,6 @@ class Horizontal:
       CL_opt_e = np.maximum(CL_opt_e, CL_min)
       return CL_opt_e
 
-
-   # Define power functions
    def P_r_prop(self, CL_opt_r, V_req_r, Cd_r):
       '''
       Inputs:
@@ -150,25 +188,47 @@ class Horizontal:
       
       return (Cd_r / CL_opt_r * W * V_req_r)
    
-   def Getweight(self, S, W_Power):
+   def Getweight(self, S, W_prop, W_bat_v):
+      '''
+      Inputs:
+         S        [m^2] Wing surface area             array-like
+         W_prop   [N]   Weight of propulsion system   array-like
+         W_bat
+      Outputs:
+         W_tot    [N]   Total weight of iteration     array-like
+      '''
+
+      cfV = self.configV
+      Ws = self.Getweightsys(S)
+
+      Wnew = (1+cfV['contingency']) * (
+              Ws['wing'] * (1+cfV['tiltwingWF']+cfV['empennageWF']) 
+            + Ws['fuselage'] 
+            + W_prop * (1+cfV['tiltpropWF'])
+            + Ws['battery'] + W_bat_v
+            + Ws['const']
+      )
+
+      return Wnew
+
+   def Getweightsys(self, S):
+      '''
+      Inputs:
+         S        [m^2] Wing surface area             array-like
+      Outputs:
+         W_sys    [N]   System weights of iteration     dict (str -> array-likes)
+      '''
+
       # Current weight
       W = self.m*ENV['g']
-
-      ### Wing weight
-      Nz = 2.25   #design load factor
-      taper = 1.00   #taper ratio
-      AR = self.b**2/S #Aspect ratio
-      t_c_root = 0.1 #thickness/chord ratio root
-      S_csw = 0.15**2*S
-      sweep_cos = np.cos(self.LambdaLE) #cos sweep=le sweep
-      W_Wing = 0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1
-
-      constWeights = 11.87 + 4.05 + 2.9 + 4 # [kg] payload, avionics, comms, other power
-      lf = 2 #fuselage length [m]
-      Pmax = np.pi*0.3 #fuselage diameter [m]
+      W_sys = {}
       
-      Wf = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(lf/Pmax)**0.778*(lf/0.3048)**(0.383)
+      ### Constant weights
+      W_sys['const'] = 11.87 + 4.05 + 2.9 + 4      # [kg] payload, avionics, comms, other power
 
+      ### Fuselage weight
+      Pmax = 2*np.pi*self.Rf                       # [m]  fuselage perimeter
+      W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(lf/0.3048)**(0.383)
 
       ### Battery weight
       # Range
@@ -179,31 +239,34 @@ class Horizontal:
       # Endurance
       CL_e = self.CLend(S)
       CD_e = self.CD(CL_e)
-      W_Bat_e = 1800    *CD_e/CL_e * W * self.V(CL_e, S) / self.eta_total * ENV['g']
+      W_Bat_e = 1800    *CD_e/CL_e * W * self.V(CL_e, S) / self.eta_total / self.E_spec * ENV['g']
 
-      print(W_Bat_e)
-      print(W_Bat_r)
+      W_sys['battery'] = np.maximum(W_Bat_r, W_Bat_e)
+
+      ### Wing weight
+      Nz = 2.25   #design load factor
+      taper = 1.00   #taper ratio
+      AR = self.b**2/S #Aspect ratio
+      t_c_root = 0.1 #thickness/chord ratio root
+      S_csw = 0.15**2*S
+      sweep_cos = np.cos(self.LambdaLE) #cos sweep=le sweep
+      
+      W_sys['wing'] = 0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1
+
+      return W_sys
+      
+   def iterate_step(self):
+      S = np.arange(2, 6, 0.1)
 
 
-      Wnew = W_Wing + Wf + W_Power + constWeights
-
-
+      self.GetAero(S)
 
 if __name__=="__main__":
    b = 4
-   S = np.arange(2, 6, 0.1)
+   
    LambdaLE = 0 #sweep angle LE (rad)
    Sf = np.pi*2*0.3
    Cfc = 0.005
-   
-   atmos = {'rho':      0.017, 
-            'g':        3.71, 
-            'a':        233.1,
-            'Re_min':   10000,
-            'Re_max':   50000,
-            'mu':       0.0000113}
 
-   h = Horizontal(b, 82.23, Sf, 0.7 , V_stall = 15)
-
-   print(S)
-   print(h.Getweight(S, 30))
+   hTR = Horizontal('tiltrotor', b, 82.23, Sf, 0.7 , V_stall = 15)
+   hTW = Horizontal('tiltwing', b, 82.23, Sf, 0.7 , V_stall = 15)
