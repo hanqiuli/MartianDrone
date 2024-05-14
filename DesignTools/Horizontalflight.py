@@ -202,7 +202,8 @@ class Horizontal:
       '''
       CL_min = self.CL(self.V_MO, S)
 
-      CL_opt_r = np.sqrt(self.Cd0/self.K)
+      # Optimal CL for maximum range is where (C_d / C_l) is minimized, which is sqrt(Cd0 / K)
+      CL_opt_r = np.sqrt(self.Cd0 / self.K)
       CL_opt_r = np.maximum(CL_opt_r, CL_min)
 
       return CL_opt_r
@@ -317,6 +318,19 @@ class Horizontal:
 
       return self.W_sys
       
+   def V_opt_range(self, S):
+      '''
+         Inputs:
+         S        [m^2] Wing surface area             array-like
+      Outputs:
+         V_opt_r  [m/s] Optimal airspeed for maximum range array-like
+      '''
+      CL_opt_r = self.CLrange(S)
+      W = self.m * ENV['g']
+      V_opt_r = np.sqrt((2 * W) / (ENV['rho'] * S * CL_opt_r))
+
+      return V_opt_r
+
    def iterate_step(self):
       ### Rotor step
       T_req_tot   = (self.m * ENV['g']) / (1-self.configV['winginterf'])
@@ -372,7 +386,9 @@ class Horizontal:
 
       if P_req_h > P_req_v:
          raise NotImplementedError(f"Horizontal power required, {P_req_h}, is larger than vertical power required, {P_req_v}.\nThis case has not been covered yet")
-      return S_opt, W_opt, P_req_h, P_req_v
+
+      V_opt_range = self.V_opt_range(S_opt) # Calculate the optimal range velocity
+      return S_opt, W_opt, P_req_h, P_req_v, V_opt_range
 
 
    def iteration(self, IterMax, eps=1e-6, plotSave=True, plotShow=False):
@@ -380,6 +396,7 @@ class Horizontal:
       self.W_arr  = np.zeros(IterMax)
       self.Ph_arr = np.zeros(IterMax)
       self.Pv_arr = np.zeros(IterMax)
+      self.Vr_arr = np.zeros(IterMax)
 
       for i in range(IterMax):
          itVals = self.iterate_step()
@@ -388,18 +405,20 @@ class Horizontal:
          self.W_arr [i] = itVals[1]
          self.Ph_arr[i] = itVals[2]
          self.Pv_arr[i] = itVals[3]
+         self.Vr_arr[i] = itVals[4]
 
          if (abs(self.S_arr [i-1] - itVals[0])<eps and
              abs(self.W_arr [i-1] - itVals[1])<eps and
              abs(self.Ph_arr[i-1] - itVals[2])<eps and
-             abs(self.Pv_arr[i-1] - itVals[3])<eps):
+             abs(self.Pv_arr[i-1] - itVals[3])<eps and
+             abs(self.Vr_arr[i-1] - itVals[4])<eps):
 
             print(f"Iter stopped at {i}")
             break
       
       if plotSave or plotShow:
-         plt.plot(range(i), np.transpose(np.array([self.S_arr[:i], self.W_arr[:i]/ENV['g'], self.Ph_arr[:i]/1000, self.Pv_arr[:i]/1000])))
-         plt.legend(["S [m]", "m [kg]", "P_h [kW]", "P_v [kW]"])
+         plt.plot(range(i), np.transpose(np.array([self.S_arr[:i], self.W_arr[:i]/ENV['g'], self.Ph_arr[:i]/1000, self.Pv_arr[:i]/1000, self.Vr_arr[:i]])))
+         plt.legend(["S [m]", "m [kg]", "P_h [kW]", "P_v [kW]", "V_range [m/s]"])
       if plotSave:
          path = filepath(f"Iterplot for {self.config}", "plots")
          plt.savefig(path)
@@ -487,6 +506,3 @@ if __name__=="__main__":
    print(hTR.V_r)
    print(hTW2.V_r)
    print(hTW4.V_r)
-
-
-
