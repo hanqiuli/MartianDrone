@@ -123,8 +123,6 @@ if __name__ == "__main__":
     plt.ylabel('Total Power (W)')
     plt.show()
 
-
-
     plt.plot(np.arange(1, 60, 1), radius_list)
     plt.grid()
     
@@ -137,3 +135,9 @@ if __name__ == "__main__":
     plt.xlabel('Endurance (minutes)')
     plt.ylabel('Rotor Radius (m)')
     plt.show()
+
+
+    # find the maximum endurance time given the rotor radius constraint
+    # find the index of the first element that is greater than the max rotor radius
+    idx = np.where(np.array(radius_list) > max_rotor_radius)[0][0]
+    print(f"Maximum endurance time given rotor radius constraint: {idx} minutes")
