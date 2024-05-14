@@ -1,12 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 from environment_properties import ENV
 from rotor import Rotor
 
 
 class Horizontal:
-   def __init__(self, config, b, m_init, Sf, M_MO, V_stall, *, CL_max=1.5, w_max=4.5, update_b=True, Range=20000, Endurance=1800, Cfc=0.0065, LambdaLE=0, e_min=0.7, e_max=0.85, eta_prop=0.5, eta_power=0.6, E_spec=828000, Lf=2, Rf=0.15):
+   def __init__(self, config, b, m_init, Sf, M_MO, V_stall, *, CL_max=1.5, w_max=4.5, update_b=True, Range=20000, Endurance=1800, Cfc=0.005, LambdaLE=0, e_min=0.7, e_max=0.85, eta_prop=0.5, eta_power=0.6, E_spec=828000, Lf=2, Rf=0.15):
       '''
       Inputs:
          config   [-]   design configuration          string     
@@ -268,14 +269,14 @@ class Horizontal:
 
       # Current weight
       W = self.m*ENV['g']
-      W_sys = {}
+      self.W_sys = {}
       
       ### Constant weights
-      W_sys['const'] = 11.87 + 4.05 + 2.9 + 4      # [kg] payload, avionics, comms, other power
+      self.W_sys['const'] = (11.87 + 4.05 + 2.9 + 4)*ENV['g']      # [kg] payload, avionics, comms, other power
 
       ### Fuselage weight
       Pmax = 2*np.pi*self.Rf                       # [m]  fuselage perimeter
-      W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(self.Lf/0.3048)**(0.383)
+      self.W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(self.Lf/0.3048)**(0.383) /3 #bogus (/5)
 
       ### Battery weight
       # Range
@@ -290,7 +291,7 @@ class Horizontal:
       self.V_e  = self.V(self.CL_e, S)
       W_Bat_e = self.Endurance  *self.CD_e/self.CL_e * W * self.V_e / self.eta_total / self.E_spec * ENV['g']
 
-      W_sys['battery'] = np.maximum(W_Bat_r, W_Bat_e)
+      self.W_sys['battery'] = np.maximum(W_Bat_r, W_Bat_e)
 
       ### Wing weight
       Nz = 2.25   #design load factor
@@ -300,9 +301,9 @@ class Horizontal:
       S_csw = 0.15**2 * S
       sweep_cos = np.cos(self.LambdaLE) #cos sweep=le sweep
       
-      W_sys['wing'] = 0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1
+      self.W_sys['wing'] = 0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1 *900
 
-      return W_sys
+      return self.W_sys
       
    def iterate_step(self):
       ### Rotor step
@@ -316,9 +317,9 @@ class Horizontal:
          self.b = self.w_max - r_rotor
 
       ### Horizontal step
-      S_low  = 1
-      S_high = 6
-      S_res  = 0.001
+      S_low  = 0.3
+      S_high = 10
+      S_res  = 0.0001
       S = np.arange(S_low, (S_high+S_res), S_res)
 
       self.GetAero(S)
@@ -342,11 +343,11 @@ class Horizontal:
 
       
       if S_opt == S_low or S_opt == S_high:
-         print(f"Optimal S is an endpoint: S = {S_opt}, indicating bad bounds")
+         print(f"Optimal S is an endpoint: S = {S_opt}, indicating bad bounds or divergence")
       
       
 
-      # Streamlines values back to floats (lazily) (also performes half iteration, source of error???)
+      # Streamlines values back to floats (lazily) (also performes partial iteration, source of error???)
       self.m = W_opt/ENV['g']
       self.GetAero(S_opt)
       self.Getweight(S_opt, W_rot['prop'], W_rot['battery'])
@@ -357,13 +358,13 @@ class Horizontal:
       P_req_h   = min(P_req_h_e, P_req_h_r)
       self.P_req_h_cache = P_req_h
 
-      if P_req_h == P_req_v:
+      if P_req_h > P_req_v:
          raise NotImplementedError(f"Horizontal power required, {P_req_h}, is larger than vertical power required, {P_req_v}.\nThis case has not been covered yet")
 
       return S_opt, W_opt, P_req_h, P_req_v
 
 
-   def iteration(self, IterMax, eps=1e-6):
+   def iteration(self, IterMax, eps=1e-6, plotSave=True, plotShow=False):
       self.S_arr  = np.zeros(IterMax)
       self.W_arr  = np.zeros(IterMax)
       self.Ph_arr = np.zeros(IterMax)
@@ -377,11 +378,33 @@ class Horizontal:
          self.Ph_arr[i] = itVals[2]
          self.Pv_arr[i] = itVals[3]
 
-      plt.plot(range(IterMax), np.transpose(np.array([self.S_arr, self.W_arr, self.Ph_arr, self.Pv_arr])))
-      plt.show()
+         if (abs(self.S_arr [i-1] - itVals[0])<eps and
+             abs(self.W_arr [i-1] - itVals[1])<eps and
+             abs(self.Ph_arr[i-1] - itVals[2])<eps and
+             abs(self.Pv_arr[i-1] - itVals[3])<eps):
+
+            print(f"Iter stopped at {i}")
+            break
+      
+      if plotSave or plotShow:
+         plt.plot(range(i), np.transpose(np.array([self.S_arr[:i], self.W_arr[:i]/ENV['g'], self.Ph_arr[:i]/1000, self.Pv_arr[:i]/1000])))
+         plt.legend(["S [m]", "m [kg]", "P_h [kW]", "P_v [kW]"])
+      if plotSave:
+         path = filepath(f"Iterplot for {self.config}", "plots")
+         plt.savefig(path)
+      if plotShow:
+         plt.show()
+      plt.clf()
       print(itVals)
 
 
+def filepath(filename, *path):
+   folders = os.path.join(*path)
+   os.makedirs(folders, exist_ok=True)
+
+   fullpath = os.path.join(folders, filename)
+
+   return fullpath
 
 
 if __name__=="__main__":
@@ -391,10 +414,14 @@ if __name__=="__main__":
    Sf = np.pi*2*0.3
    Cfc = 0.005
 
-   hTR = Horizontal('tiltrotor', b, 82.23, Sf, 0.7 , V_stall = 100, update_b=False)
+   hTR = Horizontal('tiltrotor', b*1.5, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance=600)
    hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
    hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
 
-   # hTR.iteration(100)
-   hTW2.iteration(100)
+   hTR.iteration(100, plotShow=True)
+   #hTW2.iteration(100)
    hTW4.iteration(100)
+
+   print(hTR.W_sys)
+   #print(hTW2.W_sys)
+   print(hTW4.W_sys)
