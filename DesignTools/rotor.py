@@ -40,14 +40,15 @@ class Rotor:
         '''total power required for all rotors'''
         self.P_total = self.P_per_rotor * self.N
 
-    def calculate_total_energy(self, t_flight):
+    def calculate_total_energy(self, t_flight, Wh=False):
         E_total = self.P_total * t_flight # [J]
+        if Wh:
+            E_total = E_total / 3600
         return E_total
 
     #  Formulas for masses
-
     def calculate_battery_mass(self, t_flight, E_specific):
-        return self.calculate_total_energy(t_flight) / E_specific
+        return self.calculate_total_energy(t_flight, Wh=True) / E_specific
 
     def calculate_motor_mass(self):
         return 0.432/1000 * self.P_total
@@ -70,6 +71,7 @@ class Rotor:
 
     def calculate_rotor_group_mass(self, T_required):
         # calculate TOTAL rotor group mass
+        # Based on MSH paper
         return self.calculate_blade_mass() + self.calculate_hub_mass(T_required) + \
                 self.calculate_shaft_mass() + self.calculate_support_mass()
 

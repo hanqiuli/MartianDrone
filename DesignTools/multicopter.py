@@ -4,11 +4,6 @@ from environment_properties import ENV
 from rotor import Rotor
 import random
 
-env = ENV
-g = env['g']
-rho = env['rho']
-a = env['a']
-
 #Define design parameters
 M_tip = 0.7     # Tip Mach number
 N = 1           # Number of ROTORS
@@ -109,8 +104,6 @@ def calculate_rotor_group_mass(A_blade, T_max, r_rotor, N_rotor):
 def calculate_struct_mass(m_drone):
     return 28 * ((m_drone / 1000) ** (2/3)) + 0.067 * m_drone
 
-# TODO: Potentially refactor this code to be more modular and easier to read
-
 if __name__ == "__main__":
 
     m_drone = m_payload + m_avionics + m_comms + m_struct + m_solar + m_bat + m_motor + m_rotor_group
@@ -127,12 +120,12 @@ if __name__ == "__main__":
     while i < 100 and (i == 0 or np.abs(m_drone - m_history[-2]) > 0.001):
         # perform calculations...
         m_struct = calculate_struct_mass(m_drone)
-        W, T_req, A_disk, r_disk = required_params_per_rotor(m_drone, g, N, T_A_disk, T_W_max)
-        V_tip = calculate_V_tip(M_tip, a)
-        A_blade = calculate_A_blade(V_tip, ct_sigma, T_req, rho)
-        ct, sigma = calculate_ct_and_solidity(A_disk, rho, V_tip, T_req, ct_sigma)
+        W, T_req, A_disk, r_disk = required_params_per_rotor(m_drone, ENV['g'], N, T_A_disk, T_W_max)
+        V_tip = calculate_V_tip(M_tip, ENV['a'])
+        A_blade = calculate_A_blade(V_tip, ct_sigma, T_req, ENV['rho'])
+        ct, sigma = calculate_ct_and_solidity(A_disk, ENV['rho'], V_tip, T_req, ct_sigma)
         omega = calculate_omega(V_tip, r_disk)
-        P_rotor = calculate_power_per_rotor(k_hover, T_req, rho, A_disk, A_blade, V_tip, cd_mean)
+        P_rotor = calculate_power_per_rotor(k_hover, T_req, ENV['rho'], A_disk, A_blade, V_tip, cd_mean)
         P_total = calculate_power_total(P_rotor, N)
         E_total = calculate_total_energy(P_total, T_flight)
         m_bat = calculate_battery_mass(E_total, E_bat)
@@ -141,16 +134,6 @@ if __name__ == "__main__":
 
         # update drone mass estimate
         m_drone = m_payload + m_avionics + m_comms + m_struct + m_solar + m_bat + m_motor + m_rotor_group
-
-        # # Calculate the percentages to see the budgets
-        # m_payload_percent = m_payload / m_drone
-        # m_avionics_percent = m_avionics / m_drone
-        # m_comms_percent = m_comms / m_drone
-        # m_struct_percent = m_struct / m_drone
-        # m_solar_percent = m_solar / m_drone
-        # m_bat_percent = m_bat / m_drone
-        # m_motor_percent = m_motor / m_drone
-        # m_rotors_percent = m_rotors / m_drone
 
         # Append mass histories
         m_history.append(m_drone)
@@ -182,8 +165,15 @@ if __name__ == "__main__":
 
 
 
-    # Initialize rotor object
-rotor_instance = Rotor(M_tip, N, N_blades, T_W_max, T_A_disk, ct_sigma, cl_mean, cd_mean, k_hover)
+# Initialize rotor object
+rotor_instance = Rotor(M_tip, N, N_blades)
+
+# Define variable masses
+
+m_bat = 100
+m_motor = 100
+m_rotor_group = 100
+m_struct = 100
 
 m_drone = m_payload + m_avionics + m_comms + m_struct + m_solar + m_bat + m_motor + m_rotor_group
 m_history = [m_drone]
@@ -191,18 +181,19 @@ power_history = []
 energy_history = []
 
 i = 0
-while i < 100 and (i == 0 or np.abs(m_drone - m_history[-2]) > 0.1):
-    rotor_instance.calculate_V_tip(a)
-    rotor_instance.required_params_per_rotor(m_drone * g, T_W_max)
-    rotor_instance.calculate_A_blade(m_drone * g * T_W_max, rho)
-    rotor_instance.calculate_ct_and_solidity(m_drone * g * T_W_max, rho)
-    rotor_instance.calculate_power_per_rotor(m_drone * g * T_W_max, rho)
+while i < 100 and (i == 0 or np.abs(m_drone - m_history[-2]) > 0.001):
+    # perform calculations...
+    T_required = m_drone * ENV['g'] * T_W_max / N
+    rotor_instance.required_params_per_rotor(T_required)
+    rotor_instance.calculate_A_blade(T_required)
+    rotor_instance.calculate_ct_and_solidity(T_required)
+    rotor_instance.calculate_power_per_rotor(T_required)
     rotor_instance.calculate_power_total()
-    rotor_instance.calculate_total_energy(T_flight)
 
-    m_bat = rotor_instance.calculate_battery_mass(E_bat)
+    m_bat = rotor_instance.calculate_battery_mass(T_flight, E_bat)
     m_motor = rotor_instance.calculate_motor_mass()
-    m_rotor_group = rotor_instance.calculate_rotor_group_mass(m_drone * g * T_W_max)
+    m_rotor_group = rotor_instance.calculate_rotor_group_mass(T_required)
+    m_struct = calculate_struct_mass(m_drone)
 
     m_drone = m_payload + m_avionics + m_comms + m_struct + m_solar + m_bat + m_motor + m_rotor_group
     m_history.append(m_drone)
@@ -211,29 +202,30 @@ while i < 100 and (i == 0 or np.abs(m_drone - m_history[-2]) > 0.1):
 
     i += 1
 
-    print(f"Total drone mass: {m_drone} kg")
-    print(f"Rotor group mass: {m_rotor_group} kg")
-    print(f"Motor mass: {m_motor} kg")
-    print(f"Battery mass: {m_bat} kg")
-    print(f"Structural mass: {m_struct}")
-    print(f"Total power: {power_history[-1]} W")
-    print(f"Total energy: {energy_history[-1]} Wh")
-    print("SEPARATION LINE --------------------------------------------")
+print(f"Total drone mass: {m_drone} kg")
+print(f"Rotor group mass: {m_rotor_group} kg")
+print(f"Motor mass: {m_motor} kg")
+print(f"Battery mass: {m_bat} kg")
+print(f"Structural mass: {m_struct}")
+print(f"Total power: {power_history[-1]} W")
+print(f"Total energy: {energy_history[-1]} Wh")
+print(f"Rotor radius: {rotor_instance.r_disk} m")
+print("SEPARATION LINE --------------------------------------------")
 
 
-    # plt.plot(m_history, label='Total Drone')
-    # plt.plot(m_rotor_group_history, label='Rotor Group', linestyle='dashed')
-    # plt.plot(m_motor_history, label='Motor', linestyle='dotted')
-    # plt.plot(m_bat_history, label='Battery', linestyle='dashdot')
-    # plt.plot(m_struct_history, label='Structural', linestyle='dashdot')
-    # plt.legend()
-    # plt.grid()
-    # plt.xlabel('Iteration')
-    # plt.ylabel('Masses (kg)')
-    # plt.show()
+plt.plot(m_history, label='Total Drone')
+plt.plot(m_rotor_group_history, label='Rotor Group', linestyle='dashed')
+plt.plot(m_motor_history, label='Motor', linestyle='dotted')
+plt.plot(m_bat_history, label='Battery', linestyle='dashdot')
+plt.plot(m_struct_history, label='Structural', linestyle='dashdot')
+plt.legend()
+plt.grid()
+plt.xlabel('Iteration')
+plt.ylabel('Masses (kg)')
+plt.show()
 
-    # plt.plot(power_history)
-    # plt.grid()
-    # plt.xlabel('Iteration')
-    # plt.ylabel('Total Power (W)')
-    # plt.show()
+plt.plot(power_history)
+plt.grid()
+plt.xlabel('Iteration')
+plt.ylabel('Total Power (W)')
+plt.show()
