@@ -95,9 +95,9 @@ class Rotor:
 
 if __name__ == "__main":
 
-    #Define design parameters
+    # Define design parameters
     M_tip = 0.7     # Tip Mach number
-    N = 1           # Number of ROTORS
+    N = 6           # Number of ROTORS
     N_blades = 4    # Number of blades per rotor
     T_W_max = 1.2   # Thrust margin
     T_A_disk = 8.5  # Disk loading [N/m^2]
