@@ -276,7 +276,7 @@ class Horizontal:
 
       ### Fuselage weight
       Pmax = 2*np.pi*self.Rf                       # [m]  fuselage perimeter
-      self.W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(self.Lf/0.3048)**(0.383) /3 #bogus (/5)
+      self.W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(self.Lf/0.3048)**(0.383)
 
       ### Battery weight
       # Range
@@ -301,7 +301,7 @@ class Horizontal:
       S_csw = 0.15**2 * S
       sweep_cos = np.cos(self.LambdaLE) #cos sweep=le sweep
       
-      self.W_sys['wing'] = 0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1 *900
+      self.W_sys['wing'] = 0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1
 
       return self.W_sys
       
@@ -414,14 +414,14 @@ if __name__=="__main__":
    Sf = np.pi*2*0.3
    Cfc = 0.005
 
-   hTR = Horizontal('tiltrotor', b*1.5, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance=600)
+   hTR = Horizontal('tiltrotor', b*1.7, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance=600)
    hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
    hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
 
    hTR.iteration(100, plotShow=True)
-   #hTW2.iteration(100)
+   hTW2.iteration(100)
    hTW4.iteration(100)
 
    print(hTR.W_sys)
-   #print(hTW2.W_sys)
+   print(hTW2.W_sys)
    print(hTW4.W_sys)
