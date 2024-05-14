@@ -466,9 +466,9 @@ if __name__=="__main__":
    hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW4)
 
    # Print power, mass, V_range
-   hTR.iteration(100, plotShow=True)
-   hTW2.iteration(100)
-   hTW4.iteration(100)
+   hTR.iteration(1000, plotShow=True)
+   hTW2.iteration(1000)
+   hTW4.iteration(1000)
 
    print("Tiltrotor, Tiltwing2, Tiltwing4:")
 
