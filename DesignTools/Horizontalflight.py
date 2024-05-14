@@ -352,7 +352,7 @@ class Horizontal:
       ### Rotor step
       T_req_tot   = (self.m * ENV['g']) / (1-self.configV['winginterf'])
 
-      W_rot       = self.rotor.calc_masses(T_required_tot=T_req_tot, t_flight=self.configV['hoverTime'], E_spec=self.E_spec)
+      W_rot       = self.rotor.calc_masses(T_required_tot=T_req_tot, t_flight=self.configV['hoverTime'], E_spec=self.E_spec/3600)
       P_req_v     = self.rotor.P_total
       r_rotor     = self.rotor.r_disk
 
@@ -397,6 +397,7 @@ class Horizontal:
 
       for key, val in W_rot.items():
          if key in self.W_sys.keys():
+            self.W_sys[key] += val
             continue
          self.W_sys[key] = val
       
