@@ -5,10 +5,10 @@ from rotor import Rotor
 
 #Define design parameters
 M_tip = 0.7     # Tip Mach number
-N = 4          # Number of ROTORS
+N = 2          # Number of ROTORS
 N_blades = 4    # Number of blades per rotor (Not really used rn)
 T_W_max = 1.2   # Thrust margin
-T_A_disk = 9.81 * 2.29  # Disk loading [N/m^2]
+T_A_disk = 8.5  # Disk loading [N/m^2]
 
 
 # Define aerodynamic constants for rotor
@@ -27,7 +27,6 @@ E_bat = 250      # Wh/kg
 m_payload = 11.87
 m_avionics = 4.05
 m_comms = 2.9
-m_solar = 4
 
 # Define variable masses
 
@@ -50,12 +49,12 @@ if __name__ == "__main__":
     total_power_list = []
     radius_list = []
 
-    for mins in np.arange(1, 60, 1):
+    for mins in np.arange(1, 40, 1):
         T_flight = mins * 60
         # Initialize rotor object
         rotor_instance = Rotor(M_tip, N, N_blades)
 
-        m_drone = m_payload + m_avionics + m_comms + m_struct + m_solar + m_bat + m_motor + m_rotor_group
+        m_drone = m_payload + m_avionics + m_comms + m_struct + m_bat + m_motor + m_rotor_group
         m_history = [m_drone]
         power_history = []
         energy_history = []
@@ -75,7 +74,7 @@ if __name__ == "__main__":
             m_rotor_group = rotor_instance.calculate_rotor_group_mass(T_required)
             m_struct = calculate_struct_mass(m_drone)
 
-            m_drone = m_payload + m_avionics + m_comms + m_struct + m_solar + m_bat + m_motor + m_rotor_group
+            m_drone = m_payload + m_avionics + m_comms + m_struct + m_bat + m_motor + m_rotor_group
             m_history.append(m_drone)
             power_history.append(rotor_instance.P_total)
             energy_history.append(rotor_instance.calculate_total_energy(T_flight))
@@ -111,23 +110,24 @@ if __name__ == "__main__":
         # plt.ylabel('Total Power (W)')
         # plt.show()
     
-    plt.plot(np.arange(1, 60, 1), total_mass_list)
+    plt.plot(np.arange(1, 40, 1), total_mass_list)
     plt.grid()
     plt.xlabel('Endurance (minutes)')
     plt.ylabel('Total Mass (kg)')
     plt.show()
 
-    plt.plot(np.arange(1, 60, 1), total_power_list)
+    plt.plot(np.arange(1, 40, 1), total_power_list)
     plt.grid()
     plt.xlabel('Endurance (minutes)')
     plt.ylabel('Total Power (W)')
     plt.show()
 
-    plt.plot(np.arange(1, 60, 1), radius_list)
+    plt.plot(np.arange(1, 40, 1), radius_list)
     plt.grid()
     
     #max rotor radius
-    max_rotor_radius = 4.5 / 2.2
+    # max_rotor_radius = 4.5 / 2.2
+    max_rotor_radius = 4.5
 
     #plot a horizontal line for the limit rotor radius
     plt.axhline(y=max_rotor_radius, color='r', linestyle='--')
@@ -139,5 +139,8 @@ if __name__ == "__main__":
 
     # find the maximum endurance time given the rotor radius constraint
     # find the index of the first element that is greater than the max rotor radius
-    idx = np.where(np.array(radius_list) > max_rotor_radius)[0][0]
-    print(f"Maximum endurance time given rotor radius constraint: {idx} minutes")
+    try:
+        idx = np.where(np.array(radius_list) > max_rotor_radius)[0][0]
+        print(f"Maximum endurance time given rotor radius constraint: {idx} minutes")
+    except IndexError:
+        print("All endurance times are within the rotor radius constraint")

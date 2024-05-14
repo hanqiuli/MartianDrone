@@ -36,9 +36,9 @@ class Rotor:
             ENV['rho'] * self.A_blade * self.V_tip**3 * self.cd_mean * (1/8)
         return self.P_per_rotor
 
-    def calculate_power_total(self):
-        '''total power required for all rotors'''
-        self.P_total = self.P_per_rotor * self.N
+    def calculate_power_total(self, efficiency=0.7):
+        '''total power required for the system'''
+        self.P_total = (self.P_per_rotor * self.N) / efficiency
 
     def calculate_total_energy(self, t_flight, Wh=False):
         E_total = self.P_total * t_flight # [J]

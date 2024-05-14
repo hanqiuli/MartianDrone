@@ -67,7 +67,7 @@ class Horizontal:
 
          winginterf  = 0.1       # Wing rotor interference  (FIND PROPER SOURCE)
 
-         hoverTime   = 120       # [s] time spent hovering/converting to horizontal
+         hoverTime   = 0       # [s] time spent hovering/converting to horizontal
 
          # rotor
          N        = 2               # Number of ROTORS
@@ -301,7 +301,19 @@ class Horizontal:
       S_csw = 0.15**2 * S
       sweep_cos = np.cos(self.LambdaLE) #cos sweep=le sweep
       
-      self.W_sys['wing'] = 0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1
+      # self.W_sys['wing'] = ENV['g'] * (0.0051 * (Nz**0.557) * S**0.649 * AR**0.5 * t_c_root**(-0.4) * (1+taper)**(-1.0) * S_csw**0.1)  
+
+      # taken from paper. 2.25 is assumed ultimate load factor
+      M_wing = (
+        96.948 *
+        (self.m * 2.25 / 10**5)**0.65 *
+        (AR / (sweep_cos**0.57)) *
+        (S / 100)**0.61 *
+        (1 + taper / 2 / t_c_root)**0.36 *
+        (1 + ((0.7 * ENV['a']) / 500)**0.5)**0.993
+      )
+
+      self.W_sys['wing'] = ENV['g'] * M_wing 
 
       return self.W_sys
       
@@ -360,7 +372,6 @@ class Horizontal:
 
       if P_req_h > P_req_v:
          raise NotImplementedError(f"Horizontal power required, {P_req_h}, is larger than vertical power required, {P_req_v}.\nThis case has not been covered yet")
-
       return S_opt, W_opt, P_req_h, P_req_v
 
 
@@ -397,13 +408,27 @@ class Horizontal:
       plt.clf()
       print(itVals)
 
+   def find_max_endurance(self, IterMax=1000, eps=1e-6, plotSave=False, plotShow=False):
+
+      endurance_values = np.linspace(0, 3600, 60)  # Adjust this range based on expected endurance times
+      valid_endurance = []
+
+      for endurance in endurance_values:
+         try:
+            self.Endurance = endurance
+            self.iteration(IterMax, eps, plotSave, plotShow)
+            valid_endurance.append(endurance)
+         except:
+            break
+
+      max_endurance = valid_endurance[-1] if valid_endurance else 0
+      return max_endurance
 
 def filepath(filename, *path):
    folders = os.path.join(*path)
    os.makedirs(folders, exist_ok=True)
 
    fullpath = os.path.join(folders, filename)
-
    return fullpath
 
 
@@ -414,9 +439,9 @@ if __name__=="__main__":
    Sf = np.pi*2*0.3
    Cfc = 0.005
 
-   hTR = Horizontal('tiltrotor', b*1.7, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance=600)
-   hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
-   hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
+   hTR = Horizontal('tiltrotor', b*1.7, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance= 900)
+   hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = 900)
+   hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = 900)
 
    hTR.iteration(100, plotShow=True)
    hTW2.iteration(100)
@@ -425,3 +450,43 @@ if __name__=="__main__":
    print(hTR.W_sys)
    print(hTW2.W_sys)
    print(hTW4.W_sys)
+
+   max_endurance_TR = hTR.find_max_endurance(plotShow=False, plotSave=False)
+   max_endurance_TW2 = hTW2.find_max_endurance(plotShow=False, plotSave=False)
+   max_endurance_TW4 = hTW4.find_max_endurance(plotShow=False, plotSave=False)
+
+   print(f"Max Endurance for tiltrotor: {max_endurance_TR} seconds")
+   print(f"Max Endurance for tiltwing2: {max_endurance_TW2} seconds")
+   print(f"Max Endurance for tiltwing4: {max_endurance_TW4} seconds")
+
+   # Now we fetch the data using the max endurance time
+   
+   hTR = Horizontal('tiltrotor', b*1.7, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance= max_endurance_TR)
+   hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW2)
+   hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW4)
+
+   # Print power, mass, V_range
+   hTR.iteration(100, plotShow=True)
+   hTW2.iteration(100)
+   hTW4.iteration(100)
+
+   print("Tiltrotor, Tiltwing2, Tiltwing4:")
+
+   print("System mass:")
+   print(hTR.W_sys)
+   print(hTW2.W_sys)
+   print(hTW4.W_sys)
+
+   print("Powers required for horizontal flight:")
+   print(hTR.P_req_h_cache)
+   print(hTW2.P_req_h_cache)
+   print(hTW4.P_req_h_cache)
+
+
+   print("V_range:")
+   print(hTR.V_r)
+   print(hTW2.V_r)
+   print(hTW4.V_r)
+
+
+
