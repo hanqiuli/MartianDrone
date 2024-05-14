@@ -395,6 +395,6 @@ if __name__=="__main__":
    hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
    hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False)
 
-   #hTR.iteration(100)
+   # hTR.iteration(100)
    hTW2.iteration(100)
    hTW4.iteration(100)
