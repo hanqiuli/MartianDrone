@@ -93,7 +93,7 @@ if __name__ == "__main__":
         print(f"Total energy: {energy_history[-1]} Wh")
         print(f"Rotor radius: {rotor_instance.r_disk} m")
         print(f"figure of merit: {rotor_instance.figure_of_merit}")
-        print(f"Chord length for one blade: {rotor_instance.A_blade} m")
+        print(f"Chord length for one blade: {rotor_instance.c_blade} m")
         print("SEPARATION LINE --------------------------------------------")
 
         total_mass_list.append(m_drone)
