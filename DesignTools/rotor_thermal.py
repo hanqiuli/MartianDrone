@@ -2,12 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Martian atmosphere
-rho_air     = 0.017     # [kg/m^3]      Air density
+rho_air     = 1.7e-2    # [kg/m^3]      Air density
 g           = 3.71      # [m/s^2]       Gravitational acceleration
 temp_amb    = 220       # [K]           Ambient temperature
 cp_air      = 772       # [J/(kg*K)]    Specific heat capacity of air
-dyn_vsc_air = 0.0000113 # [Pa*s]        Air dynamic viscosity
+dyn_vsc_air = 1.13e-5   # [Pa*s]        Air dynamic viscosity
 k_air       = 0.024     # [W/(m*K)]     Air thermal conductivity
+sigma       = 5.67e-8   # Stefan-Boltzmann constant [W/(m^2*K^4)]
 
 kin_vsc_air = dyn_vsc_air / rho_air         # [m^2/s]   Air kinematic viscosity
 alpha_air   = k_air / (rho_air * cp_air)    # [m^2/s]   Air thermal diffusivity
@@ -17,9 +18,9 @@ temp_init   = 273.15 - 10   # [K]   Initial motor temperature
 temp_max    = 273.15 + 100  # [K]   Maximum motor temperature
 
 # Rotorcraft parameters
-mass                = 121.00    # [kg]  Total mass of the rotorcraft
-mass_motor_total    = 9.00      # [kg]  Total mass of the motors
-power_rotor_total   = 17000.0   # [W]   Total power of the rotors
+mass                = 105.83    # [kg]  Total mass of the rotorcraft
+mass_motor_total    = 6.68      # [kg]  Total mass of the motors
+power_rotor_total   = 15473   # [W]   Total power of the rotors
 r_rotor             = 1.00      # [m]   Rotor radius
 n_rotors            = 6         # [-]   Number of rotors
 
@@ -32,16 +33,16 @@ cp_motor    = 1825.0    # [J/(kg*K)]    Motor specific heat capacity
 k_motor     = 216.0     # [W/(m*K)]     Motor thermal conductivity
 eff_motor   = 0.70      # [-]           Motor efficiency
 D_motor     = 0.08      # [m]           Motor diameter
+mass_motor  = 0.65      # [kg]          Motor mass 
 
-mass_motor  = mass_motor_total / n_rotors   # [kg]          Motor mass
-# mass_motor  = 0.5 # [kg]          Motor mass 
-power_motor = power_rotor / eff_motor # [W] Motor power
+# mass_motor  = mass_motor_total / n_rotors   # [kg]          Motor mass
+power_motor = power_rotor / eff_motor       # [W] Motor power
 
 # Fin parameters
-L_fin   = 0.08  # [m]       Fin length
-H_fin   = 0.05  # [m]       Fin height
+L_fin   = 0.07  # [m]       Fin length
+H_fin   = 0.04  # [m]       Fin height
 t_fin   = 0.001 # [m]       Fin thickness
-s_fin   = 0.002 # [m]       Fin spacing
+s_fin   = 0.001 # [m]       Fin spacing
 rho_fin = 2700  # [kg/m^3]  Fin density
 
 n_fins  = np.floor(np.pi * D_motor / (t_fin + s_fin))           # [-]   Number of fins
@@ -54,7 +55,7 @@ A_f_tot = n_fins * A_f + A_b                                    # [m^2] Total su
 volume_fin = n_fins * L_fin * H_fin * t_fin # [m^3] Fin volume
 mass_fin = volume_fin * rho_fin             # [kg] Fin mass
 mass_fin_total = mass_fin * n_rotors        # [kg] Total fin mass
-mass_motor_total = mass_motor * n_rotors    # [kg] Total motor massº
+mass_motor_total = mass_motor * n_rotors    # [kg] Total motor mass
 
 print('--- FIN PARAMETERS ---')
 print(f'n_fins: {n_fins}')
@@ -70,7 +71,7 @@ print(f'Total motor mass excl. fins: {mass_motor_total} kg')
 
 # Heat transfer calculations
 def calc_w_rotor(A_disk, air_density, weight, n_rotors): # Rotor downwash velocity
-    return np.sqrt(weight/6/n_rotors/(2*A_disk*air_density))
+    return np.sqrt(weight / n_rotors/(2*A_disk*air_density))
 
 def calc_Pr(kin_vsc_air, alpha_air):    # Prandtl number
     return kin_vsc_air / alpha_air
@@ -96,12 +97,12 @@ def calc_R_th(h, eff_fin, n_fins, A_f, A_b): # Thermal resistance
     return 1 / (h * (eff_fin * n_fins * A_f + A_b))
 
 w_rotor = calc_w_rotor(A_disk, rho_air, weight, n_rotors)
-Pr = calc_Pr(kin_vsc_air, alpha_air)
-Re = calc_Re(kin_vsc_air, L_fin, w_rotor)
-Nu = calc_Nu(Re, Pr)
-h = calc_h(Nu, k_air, L_fin)
+Pr      = calc_Pr(kin_vsc_air, alpha_air)
+Re      = calc_Re(kin_vsc_air, L_fin, w_rotor)
+Nu      = calc_Nu(Re, Pr)
+h       = calc_h(Nu, k_air, L_fin)
 eff_fin = calc_eff_fin(h, P_fin, k_motor, A_c, A_f)
-R_th = calc_R_th(h, eff_fin, n_fins, A_f, A_b)
+R_th    = calc_R_th(h, eff_fin, n_fins, A_f, A_b)
 
 print('--- CONVECTION PARAMETERS ---')
 print(f'w_rotor: {w_rotor} m/s')
@@ -132,12 +133,22 @@ for i in range(1, len(time)):
     # Update temperature
     temp_conv[i] = temp_conv[i-1] + delta_temp
 
+# Calculate time to reach maximum temperature for no cooling
+time_max_no_cool = np.argmax(temp_no_cool >= temp_max) * dt
+
+# Calculate time to reach maximum temperature with convective cooling
+time_max_conv = np.argmax(temp_conv >= temp_max) * dt
+
+print('--- TIME TO REACH MAXIMUM TEMPERATURE ---')
+print(f'No cooling: {time_max_no_cool/60} min')
+print(f'Convective cooling: {time_max_conv/60} min')
+
 # Plot results
 plt.figure(figsize=(10, 6))
 
 plt.plot(time/60, temp_no_cool - 273.15, label='Without cooling')
 plt.plot(time/60, temp_conv - 273.15, label='With convective cooling')
-plt.plot([0, time[-1]/60], [temp_max-273.15, temp_max-273.15], 'k--', label='Max temperature')
+plt.plot([0, time[-1]/60], [temp_max-273.15, temp_max-273.15], 'k--', label='Maximum temperature')
 
 plt.xlabel('Time [min]')
 plt.ylabel('Temperature [deg C]')
