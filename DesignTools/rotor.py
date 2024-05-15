@@ -4,7 +4,7 @@ from environment_properties import ENV
 
 
 class Rotor:
-    def __init__(self, M_tip, N, N_blades, *, T_W_max=1.2, T_A_disk=8.5, ct_sigma=0.115, cl_mean=0.69, cd_mean=0.069, k_hover=1.2):
+    def __init__(self, M_tip, N, N_blades, *, T_W_max=1.2, T_A_disk=8.5, ct_sigma=0.115, cl_mean=0.69, cd_mean=0.069, k_hover=1.2, total_eff = 0.7):
         self.M_tip = M_tip
         self.N = N
         self.N_blades = N_blades
@@ -14,15 +14,18 @@ class Rotor:
         self.cl_mean = cl_mean
         self.cd_mean = cd_mean
         self.k_hover = k_hover
+        self.total_eff = total_eff
 
         self.V_tip = M_tip * ENV['a']
 
     def required_params_per_rotor(self, T_required):
+        """This function calculates the required parameters for a single rotor, T_required is the thrust required for a single rotor"""
+
         self.A_disk = (self.T_W_max * T_required) / self.T_A_disk
         self.r_disk = np.sqrt(self.A_disk / np.pi)
 
-    def calculate_A_blade(self, T_required):
-        self.A_blade = T_required / (ENV['rho'] * self.ct_sigma * self.V_tip**2)
+    def calculate_A_blade_total(self, T_required):
+        self.A_blade_total = T_required / (ENV['rho'] * self.ct_sigma * self.V_tip**2)
 
     def calculate_ct_and_solidity(self, T_required):
         self.ct = T_required / (self.A_disk * ENV['rho'] * self.V_tip**2)
@@ -33,18 +36,22 @@ class Rotor:
 
     def calculate_power_per_rotor(self, T_required):
         self.P_per_rotor = self.k_hover * T_required * np.sqrt((T_required)/(2*ENV['rho']*self.A_disk)) + \
-            ENV['rho'] * self.A_blade * self.V_tip**3 * self.cd_mean * (1/8)
+            ENV['rho'] * self.A_blade_total * self.V_tip**3 * self.cd_mean * (1/8)
         return self.P_per_rotor
 
-    def calculate_power_total(self, efficiency=0.7):
+    def calculate_power_total(self):
         '''total power required for the system'''
-        self.P_total = (self.P_per_rotor * self.N) / efficiency
+        self.P_total = (self.P_per_rotor * self.N) / self.total_eff
 
     def calculate_total_energy(self, t_flight, Wh=False):
         E_total = self.P_total * t_flight # [J]
         if Wh:
             E_total = E_total / 3600
         return E_total
+    
+    def calculate_single_blade_chord(self):
+        """Calculates the chord of a single blade"""
+        self.A_blade = self.A_blade_total / (self.N_blades * self.r_disk)
 
     #  Formulas for masses
     def calculate_battery_mass(self, t_flight, E_specific):
@@ -80,7 +87,7 @@ class Rotor:
         T_req_pr = T_required_tot / self.N
 
         self.required_params_per_rotor(T_req_pr)
-        self.calculate_A_blade(T_req_pr)
+        self.calculate_A_blade_total(T_req_pr)
         self.calculate_ct_and_solidity(T_req_pr)
         self.calculate_omega()
         self.calculate_power_per_rotor(T_req_pr)
@@ -94,18 +101,6 @@ class Rotor:
         W_sys['battery'] = ENV['g'] *  self.calculate_battery_mass(t_flight, E_spec)
 
         return W_sys
-
-if __name__ == "__main":
-
-    # Define design parameters
-    M_tip = 0.7     # Tip Mach number
-    N = 6           # Number of ROTORS
-    N_blades = 4    # Number of blades per rotor
-    T_W_max = 1.2   # Thrust margin
-    T_A_disk = 8.5  # Disk loading [N/m^2]
-
-    # Define aerodynamic constants for rotor
-    ct_sigma = 0.115        # blade loading coefficient
-    cl_mean = 6 * ct_sigma  # mean lift coefficient
-    cd_mean = cl_mean/10    # mean drag coefficient
-    k_hover = 1.2           # induced/ideal power ratio
+    
+    def figure_of_merit_calc(self, T_required):
+        self.figure_of_merit = (T_required * np.sqrt(T_required / (2 * ENV['rho'] * self.A_disk))) / self.P_per_rotor

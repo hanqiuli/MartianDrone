@@ -6,8 +6,19 @@ from environment_properties import ENV
 from rotor import Rotor
 
 
+def filepath(filename, *path):
+   folders = os.path.join(*path)
+   os.makedirs(folders, exist_ok=True)
+
+   fullpath = os.path.join(folders, filename)
+   return fullpath
+
+
 class Horizontal:
-   def __init__(self, config, b, m_init, Sf, M_MO, V_stall, *, CL_max=1.5, w_max=4.5, update_b=True, Range=20000, Endurance=1800, Cfc=0.005, LambdaLE=0, e_min=0.7, e_max=0.85, eta_prop=0.5, eta_power=0.6, E_spec=828000, Lf=2, Rf=0.15):
+   def __init__(self,      config,        b,             m_init,     M_MO,          V_stall,       *, 
+               t_f=0.003,  rho_f=2699,    CL_max=1.5,    w_max=4.5,  update_b=True, Range=20000,   Endurance=1800, 
+               Cfc=0.005,  LambdaLE=0,    e_min=0.7,     e_max=0.85, eta_prop=0.5,  eta_power=0.7, E_spec=828000,
+               Lf=2,       Rf=0.15):
       '''
       Inputs:
          config   [-]   design configuration          string     
@@ -17,6 +28,8 @@ class Horizontal:
          Sf       [m^2] Fuselage wetted area          array-like
          M_MO     [-]   Maximum operating mach number float/int
          V_stall  [m/s] Stall speed                   float/int
+         t_f      [m]   Fuselage average thickness    float/int
+         rho_f    [kg/m3]  Fuselage structure density float/int         (Aluminium)
          CL_max   [-]   Maximum lift coefficient      float/int
          w_max    [m]   Maximum width of drone        float/int
          update_b [-]   Update b w.r.t. rotor radius  bool
@@ -35,7 +48,6 @@ class Horizontal:
       # Direct assignments
       self.b         = b
       self.m         = m_init
-      self.Sf        = Sf
       self.CL_max    = CL_max
       self.w_max     = w_max
       self.Cfc       = Cfc
@@ -51,38 +63,41 @@ class Horizontal:
       self.Range     = Range
       self.Endurance = Endurance
       self.update_b  = update_b
+      self.t_f       = t_f
+      self.rho_f     = rho_f
 
 
       # Derived variables
       self.V_MO      = M_MO * ENV['a']
       self.eta_total = eta_prop * eta_power
       self.WS_max    = CL_max * 0.5*ENV['rho']*V_stall**2
+      self.Sf        = np.pi*2*Rf*Lf*1.1
 
       if 'tiltrotor' in self.config:
-         contingency = 0.2       # extra weight fraction added
+         contingency = 0.00      # extra weight fraction added
 
          empennageWF = 0.1       # empennage weight fraction of wing mass
          tiltwingWF  = 0         # tilting mechanism weight fraction of wing mass
-         tiltpropWF  = 0.25      # tilting mechanism weight fraction of propulsion mass
+         tiltpropWF  = 0.05      # tilting mechanism weight fraction of propulsion mass
 
          winginterf  = 0.1       # Wing rotor interference  (FIND PROPER SOURCE)
 
-         hoverTime   = 0       # [s] time spent hovering/converting to horizontal
+         hoverTime   = 300       # [s] time spent hovering/converting to horizontal
 
          # rotor
          N        = 2               # Number of ROTORS
-         N_blades = 4               # Number of blades per rotor
+         N_blades = 4              # Number of blades per rotor
 
       elif 'tiltwing2' in self.config:
          contingency = 0.00       # extra weight fraction added
 
          empennageWF = 0.1       # empennage weight fraction of wing mass
-         tiltwingWF  = 0.1       # tilting mechanism weight fraction of wing mass
-         tiltpropWF  = 0.1       # tilting mechanism weight fraction of propulsion mass
+         tiltwingWF  = 0.02       # tilting mechanism weight fraction of wing mass
+         tiltpropWF  = 0.05       # tilting mechanism weight fraction of propulsion mass
 
          winginterf  = 0         # Wing rotor interference  (FIND PROPER SOURCE)
 
-         hoverTime   = 300        # [s] time spent hovering/converting to horizontal
+         hoverTime   = 30        # [s] time spent hovering/converting to horizontal
 
          # rotor
          N        = 2            # Number of ROTORS
@@ -92,8 +107,8 @@ class Horizontal:
          contingency = 0.00       # extra weight fraction added
 
          empennageWF = 0.1       # empennage weight fraction of wing mass
-         tiltwingWF  = 0.1       # tilting mechanism weight fraction of wing mass
-         tiltpropWF  = 0.1       # tilting mechanism weight fraction of propulsion mass
+         tiltwingWF  = 0.02       # tilting mechanism weight fraction of wing mass
+         tiltpropWF  = 0.05       # tilting mechanism weight fraction of propulsion mass
 
          winginterf  = 0         # Wing rotor interference  (FIND PROPER SOURCE)
 
@@ -276,8 +291,10 @@ class Horizontal:
       self.W_sys['const'] = (11.87 + 4.05 + 2.9 + 4)*ENV['g']      # [kg] payload, avionics, comms, other power
 
       ### Fuselage weight
-      Pmax = 2*np.pi*self.Rf                       # [m]  fuselage perimeter
-      self.W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(self.Lf/0.3048)**(0.383)
+      #Pmax = 2*np.pi*self.Rf                       # [m]  fuselage perimeter
+      #self.W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(self.Lf/0.3048)**(0.383)
+
+      self.W_sys['fuselage'] = self.Sf*self.t_f*self.rho_f*1.1
 
       ### Battery weight
       # Range
@@ -344,7 +361,7 @@ class Horizontal:
 
       ### Horizontal step
       S_low  = 0.3
-      S_high = 10
+      S_high = 20
       S_res  = 0.0001
       S = np.arange(S_low, (S_high+S_res), S_res)
 
@@ -368,7 +385,7 @@ class Horizontal:
       W_opt = W[i_opt]
 
       
-      if S_opt == S_low or S_opt == S_high:
+      if S_opt < S_low+S_res/2 or S_opt > S_high-S_res/2:
          print(f"Optimal S is an endpoint: S = {S_opt}, indicating bad bounds or divergence")
       
       
@@ -377,19 +394,24 @@ class Horizontal:
       self.m = W_opt/ENV['g']
       self.GetAero(S_opt)
       self.Getweight(S_opt, W_rot['prop'], W_rot['battery'])
+
+      for key, val in W_rot.items():
+         if key in self.W_sys.keys():
+            continue
+         self.W_sys[key] = val
       
       P_req_h_e = self.P_req_h(self.CL_e, self.V_e, self.CD_e, W_opt)
       P_req_h_r = self.P_req_h(self.CL_r, self.V_r, self.CD_r, W_opt)
 
       P_req_h   = min(P_req_h_e, P_req_h_r)
       self.P_req_h_cache = P_req_h
+      self.S_opt = S_opt
 
       if P_req_h > P_req_v:
          raise NotImplementedError(f"Horizontal power required, {P_req_h}, is larger than vertical power required, {P_req_v}.\nThis case has not been covered yet")
 
       V_opt_range = self.V_opt_range(S_opt) # Calculate the optimal range velocity
       return S_opt, W_opt, P_req_h, P_req_v, V_opt_range
-
 
    def iteration(self, IterMax, eps=1e-6, plotSave=True, plotShow=False):
       self.S_arr  = np.zeros(IterMax)
@@ -425,7 +447,9 @@ class Horizontal:
       if plotShow:
          plt.show()
       plt.clf()
-      print(itVals)
+
+      for key, val in self.W_sys.items():
+         self.W_sys[key] = round(val, 3)
 
    def find_max_endurance(self, IterMax=1000, eps=1e-6, plotSave=False, plotShow=False):
 
@@ -443,12 +467,8 @@ class Horizontal:
       max_endurance = valid_endurance[-1] if valid_endurance else 0
       return max_endurance
 
-def filepath(filename, *path):
-   folders = os.path.join(*path)
-   os.makedirs(folders, exist_ok=True)
 
-   fullpath = os.path.join(folders, filename)
-   return fullpath
+
 
 
 if __name__=="__main__":
@@ -458,38 +478,21 @@ if __name__=="__main__":
    Sf = np.pi*2*0.3
    Cfc = 0.005
 
-   hTR = Horizontal('tiltrotor', b*1.7, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance= 900)
-   hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = 900)
-   hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = 900)
+   hTR  = Horizontal('tiltrotor', b*1.5, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
+   hTW2 = Horizontal('tiltwing2', b,     82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
+   hTW4 = Horizontal('tiltwing4', b,     82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
 
-   hTR.iteration(100, plotShow=True)
-   hTW2.iteration(100)
-   hTW4.iteration(100)
+   hTR .iteration(100, plotShow=False)
+   hTW2.iteration(100, plotShow=False)
+   hTW4.iteration(100, plotShow=False)
 
-   print(hTR.W_sys)
-   print(hTW2.W_sys)
-   print(hTW4.W_sys)
-
-   max_endurance_TR = hTR.find_max_endurance(plotShow=False, plotSave=False)
-   max_endurance_TW2 = hTW2.find_max_endurance(plotShow=False, plotSave=False)
-   max_endurance_TW4 = hTW4.find_max_endurance(plotShow=False, plotSave=False)
-
-   print(f"Max Endurance for tiltrotor: {max_endurance_TR} seconds")
-   print(f"Max Endurance for tiltwing2: {max_endurance_TW2} seconds")
-   print(f"Max Endurance for tiltwing4: {max_endurance_TW4} seconds")
-
-   # Now we fetch the data using the max endurance time
-   
-   hTR = Horizontal('tiltrotor', b*1.7, 82.23, Sf, 0.7 , V_stall = 100, update_b=False, Endurance= max_endurance_TR)
-   hTW2 = Horizontal('tiltwing2', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW2)
-   hTW4 = Horizontal('tiltwing4', b, 82.23, Sf, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW4)
-
-   # Print power, mass, V_range
-   hTR.iteration(1000, plotShow=True)
-   hTW2.iteration(1000)
-   hTW4.iteration(1000)
 
    print("Tiltrotor, Tiltwing2, Tiltwing4:")
+
+   print("Drone mass:")
+   print(hTR.m)
+   print(hTW2.m)
+   print(hTW4.m)
 
    print("System mass:")
    print(hTR.W_sys)
@@ -501,8 +504,39 @@ if __name__=="__main__":
    print(hTW2.P_req_h_cache)
    print(hTW4.P_req_h_cache)
 
-
    print("V_range:")
    print(hTR.V_r)
    print(hTW2.V_r)
    print(hTW4.V_r)
+
+   print("r_disk:")
+   print(hTR.rotor.r_disk)
+   print(hTW2.rotor.r_disk)
+   print(hTW4.rotor.r_disk)
+
+   print("S:")
+   print(hTR.S_opt)
+   print(hTW2.S_opt)
+   print(hTW4.S_opt)
+
+
+
+   if False:
+      max_endurance_TR = hTR.find_max_endurance(plotShow=False, plotSave=False)
+      max_endurance_TW2 = hTW2.find_max_endurance(plotShow=False, plotSave=False)
+      max_endurance_TW4 = hTW4.find_max_endurance(plotShow=False, plotSave=False)
+
+      print(f"Max Endurance for tiltrotor: {max_endurance_TR} seconds")
+      print(f"Max Endurance for tiltwing2: {max_endurance_TW2} seconds")
+      print(f"Max Endurance for tiltwing4: {max_endurance_TW4} seconds")
+
+      # Now we fetch the data using the max endurance time
+      
+      hTR = Horizontal('tiltrotor', b*1.7, 82.23, 0.7 , V_stall = 100, update_b=False, Endurance= max_endurance_TR)
+      hTW2 = Horizontal('tiltwing2', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW2)
+      hTW4 = Horizontal('tiltwing4', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW4)
+
+      # Print power, mass, V_range
+      hTR.iteration(100, plotShow=True)
+      hTW2.iteration(100)
+      hTW4.iteration(100)

@@ -5,9 +5,9 @@ from rotor import Rotor
 
 #Define design parameters
 M_tip = 0.7     # Tip Mach number
-N = 2          # Number of ROTORS
-N_blades = 4    # Number of blades per rotor (Not really used rn)
-T_W_max = 1.2   # Thrust margin
+N = 6          # Number of ROTORS
+N_blades = 6    # Number of blades per rotor
+T_W_max = 1.5   # Thrust margin
 T_A_disk = 8.5  # Disk loading [N/m^2]
 
 
@@ -17,14 +17,15 @@ cl_mean = 6 * ct_sigma  # mean lift coefficient
 cd_mean = cl_mean/10    # mean drag coefficient
 k_hover = 1.2           # induced/ideal power ratio
 
-# Define flight time and battery specific energy
+# Define flight time and battery specific energy, as well as efficiency
 T_flight = 30*60 # s
 E_bat = 250      # Wh/kg
+total_eff = 0.7
 
 # Define mass constants (in kg)
 # Note that these can be changed as needed
 
-m_payload = 11.87
+m_payload = 11.07
 m_avionics = 4.05
 m_comms = 2.9
 
@@ -52,22 +53,22 @@ if __name__ == "__main__":
     for mins in np.arange(1, 40, 1):
         T_flight = mins * 60
         # Initialize rotor object
-        rotor_instance = Rotor(M_tip, N, N_blades)
-
+        rotor_instance = Rotor(M_tip, N, N_blades, T_W_max=T_W_max, T_A_disk=T_A_disk, ct_sigma=ct_sigma, cl_mean=cl_mean, cd_mean=cd_mean, k_hover=k_hover, total_eff=total_eff)
         m_drone = m_payload + m_avionics + m_comms + m_struct + m_bat + m_motor + m_rotor_group
         m_history = [m_drone]
         power_history = []
         energy_history = []
-
         i = 0
         while i < 100 and (i == 0 or np.abs(m_drone - m_history[-2]) > 0.001):
             # perform calculations...
-            T_required = m_drone * ENV['g'] * T_W_max / N
+            T_required = (m_drone * ENV['g']) / N
             rotor_instance.required_params_per_rotor(T_required)
-            rotor_instance.calculate_A_blade(T_required)
+            rotor_instance.calculate_A_blade_total(T_required)
             rotor_instance.calculate_ct_and_solidity(T_required)
             rotor_instance.calculate_power_per_rotor(T_required)
             rotor_instance.calculate_power_total()
+            rotor_instance.figure_of_merit_calc(T_required)
+            rotor_instance.calculate_single_blade_chord()
 
             m_bat = rotor_instance.calculate_battery_mass(T_flight, E_bat)
             m_motor = rotor_instance.calculate_motor_mass()
@@ -77,7 +78,7 @@ if __name__ == "__main__":
             m_drone = m_payload + m_avionics + m_comms + m_struct + m_bat + m_motor + m_rotor_group
             m_history.append(m_drone)
             power_history.append(rotor_instance.P_total)
-            energy_history.append(rotor_instance.calculate_total_energy(T_flight))
+            energy_history.append(rotor_instance.calculate_total_energy(T_flight, Wh=True))
 
             i += 1
 
@@ -91,6 +92,8 @@ if __name__ == "__main__":
         print(f"Total power: {power_history[-1]} W")
         print(f"Total energy: {energy_history[-1]} Wh")
         print(f"Rotor radius: {rotor_instance.r_disk} m")
+        print(f"figure of merit: {rotor_instance.figure_of_merit}")
+        print(f"Chord length for one blade: {rotor_instance.A_blade} m")
         print("SEPARATION LINE --------------------------------------------")
 
         total_mass_list.append(m_drone)
@@ -126,8 +129,8 @@ if __name__ == "__main__":
     plt.grid()
     
     #max rotor radius
-    # max_rotor_radius = 4.5 / 2.2
-    max_rotor_radius = 4.5
+    max_rotor_radius = (0.9 * 4.5 / 2)
+    # max_rotor_radius = 4.5 / 2
 
     #plot a horizontal line for the limit rotor radius
     plt.axhline(y=max_rotor_radius, color='r', linestyle='--')
