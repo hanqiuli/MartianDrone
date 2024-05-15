@@ -16,7 +16,7 @@ def filepath(filename, *path):
 
 class Horizontal:
    def __init__(self,      config,        b,             m_init,     M_MO,          V_stall,       *, 
-               t_f=0.003,  rho_f=2699,    CL_max=1.5,    w_max=4.5,  update_b=True, Range=20000,   Endurance=1800, 
+               t_f=0.0015,  rho_f=2699,    CL_max=1.5,    w_max=4.5,  update_b=True, Range=20000,   Endurance=1800, 
                Cfc=0.005,  LambdaLE=0,    e_min=0.7,     e_max=0.85, eta_prop=0.6,  eta_power=0.7, E_spec=9e5,
                Lf=2,       Rf=0.15):
       '''
@@ -295,7 +295,7 @@ class Horizontal:
       #Pmax = 2*np.pi*self.Rf                       # [m]  fuselage perimeter
       #self.W_sys['fuselage'] = 14.86*(self.m*ENV['g']/4.44822162)**0.144*(self.Lf/Pmax)**0.778*(self.Lf/0.3048)**(0.383)
 
-      self.W_sys['fuselage'] = self.Sf*self.t_f*self.rho_f*1.1
+      self.W_sys['fuselage'] = ENV['g']* self.Sf*self.t_f*self.rho_f*1.1
 
       ### Battery weight
       # Range
