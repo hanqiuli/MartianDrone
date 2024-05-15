@@ -17,7 +17,7 @@ def filepath(filename, *path):
 class Horizontal:
    def __init__(self,      config,        b,             m_init,     M_MO,          V_stall,       *, 
                t_f=0.003,  rho_f=2699,    CL_max=1.5,    w_max=4.5,  update_b=True, Range=20000,   Endurance=1800, 
-               Cfc=0.005,  LambdaLE=0,    e_min=0.7,     e_max=0.85, eta_prop=0.5,  eta_power=0.7, E_spec=828000,
+               Cfc=0.005,  LambdaLE=0,    e_min=0.7,     e_max=0.85, eta_prop=0.6,  eta_power=0.7, E_spec=9e5,
                Lf=2,       Rf=0.15):
       '''
       Inputs:
@@ -25,7 +25,6 @@ class Horizontal:
          b        [m]   Wingspan                      array-like
          m_init   [kg]  Initial weight sizing         float/int
          LambdaLE [rad] Leading edge sweep            float/int
-         Sf       [m^2] Fuselage wetted area          array-like
          M_MO     [-]   Maximum operating mach number float/int
          V_stall  [m/s] Stall speed                   float/int
          t_f      [m]   Fuselage average thickness    float/int
@@ -92,12 +91,12 @@ class Horizontal:
          contingency = 0.00       # extra weight fraction added
 
          empennageWF = 0.1       # empennage weight fraction of wing mass
-         tiltwingWF  = 0.02       # tilting mechanism weight fraction of wing mass
+         tiltwingWF  = 0.10       # tilting mechanism weight fraction of wing mass
          tiltpropWF  = 0.05       # tilting mechanism weight fraction of propulsion mass
 
          winginterf  = 0         # Wing rotor interference  (FIND PROPER SOURCE)
 
-         hoverTime   = 30        # [s] time spent hovering/converting to horizontal
+         hoverTime   = 120        # [s] time spent hovering/converting to horizontal
 
          # rotor
          N        = 2            # Number of ROTORS
@@ -107,12 +106,12 @@ class Horizontal:
          contingency = 0.00       # extra weight fraction added
 
          empennageWF = 0.1       # empennage weight fraction of wing mass
-         tiltwingWF  = 0.02       # tilting mechanism weight fraction of wing mass
+         tiltwingWF  = 0.10       # tilting mechanism weight fraction of wing mass
          tiltpropWF  = 0.05       # tilting mechanism weight fraction of propulsion mass
 
          winginterf  = 0         # Wing rotor interference  (FIND PROPER SOURCE)
 
-         hoverTime   = 30        # [s] time spent hovering/converting to horizontal
+         hoverTime   = 120        # [s] time spent hovering/converting to horizontal
 
          # rotor
          N        = 4            # Number of ROTORS
@@ -263,10 +262,12 @@ class Horizontal:
       cfV = self.configV
       Ws = self.Getweightsys(S)
 
+      Ws['wing'] *= 1+cfV['tiltwingWF']+cfV['empennageWF']
+
       W = (1+cfV['contingency']) * (
-              Ws['wing'] * (1+cfV['tiltwingWF']+cfV['empennageWF']) 
+              Ws['wing'] 
             + Ws['fuselage'] 
-            + W_prop * (1+cfV['tiltpropWF'])
+            + W_prop
             + Ws['battery'] + W_bat_v
             + Ws['const']
       )
@@ -350,11 +351,13 @@ class Horizontal:
 
    def iterate_step(self):
       ### Rotor step
-      T_req_tot   = (self.m * ENV['g']) / (1-self.configV['winginterf'])
+      T_req_tot      = (self.m * ENV['g']) / (1-self.configV['winginterf'])
 
-      W_rot       = self.rotor.calc_masses(T_required_tot=T_req_tot, t_flight=self.configV['hoverTime'], E_spec=self.E_spec/3600)
-      P_req_v     = self.rotor.P_total
-      r_rotor     = self.rotor.r_disk
+      W_rot          = self.rotor.calc_masses(T_required_tot=T_req_tot, t_flight=self.configV['hoverTime'], E_spec=self.E_spec/3600)
+      W_rot['prop'] *= (1+self.configV['tiltpropWF'])
+
+      P_req_v        = self.rotor.P_total
+      r_rotor        = self.rotor.r_disk
 
       if self.update_b:
          self.b = self.w_max - r_rotor
@@ -404,7 +407,8 @@ class Horizontal:
       P_req_h_e = self.P_req_h(self.CL_e, self.V_e, self.CD_e, W_opt)
       P_req_h_r = self.P_req_h(self.CL_r, self.V_r, self.CD_r, W_opt)
 
-      P_req_h   = min(P_req_h_e, P_req_h_r)
+      P_req_h   = min(P_req_h_e, P_req_h_r)/self.eta_total
+      self.P_req_v_cache = P_req_v
       self.P_req_h_cache = P_req_h
       self.S_opt = S_opt
 
@@ -479,9 +483,9 @@ if __name__=="__main__":
    Sf = np.pi*2*0.3
    Cfc = 0.005
 
-   hTR  = Horizontal('tiltrotor', b*1.5, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
-   hTW2 = Horizontal('tiltwing2', b,     82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
-   hTW4 = Horizontal('tiltwing4', b,     82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
+   hTR  = Horizontal('tiltrotor', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
+   hTW2 = Horizontal('tiltwing2', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
+   hTW4 = Horizontal('tiltwing4', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
 
    hTR .iteration(100, plotShow=False)
    hTW2.iteration(100, plotShow=False)
@@ -499,6 +503,11 @@ if __name__=="__main__":
    print(hTR.W_sys)
    print(hTW2.W_sys)
    print(hTW4.W_sys)
+
+   print("Powers required for vertical flight:")
+   print(hTR.P_req_v_cache)
+   print(hTW2.P_req_v_cache)
+   print(hTW4.P_req_v_cache)
 
    print("Powers required for horizontal flight:")
    print(hTR.P_req_h_cache)
@@ -519,6 +528,11 @@ if __name__=="__main__":
    print(hTR.S_opt)
    print(hTW2.S_opt)
    print(hTW4.S_opt)
+
+   print("V_stall:")
+   print(hTR.V(hTR.CL_max, hTR.S_opt))
+   print(hTW2.V(hTW2.CL_max, hTW2.S_opt))
+   print(hTW4.V(hTW4.CL_max, hTW4.S_opt))
 
 
 
