@@ -4,7 +4,7 @@ import pandas as pd
 import os
 
 
-def plot_solar_flux(file_name='Solar_Flux.txt', plotting=False):
+def get_avg_solar_flux(file_name='Solar_Flux.txt', plotting=False):
     file_path = os.path.join('DesignTools/data', 'Solar_Flux.txt')
 
     with open(file_path, 'r') as file:
@@ -27,7 +27,6 @@ def plot_solar_flux(file_name='Solar_Flux.txt', plotting=False):
         days.append(float(parts[0].strip()))
         flux.append([float(x) for x in parts[1].split()])
 
-
     #Convert to np arrays
     days = np.array(days)
     flux = np.array(flux)
@@ -35,7 +34,7 @@ def plot_solar_flux(file_name='Solar_Flux.txt', plotting=False):
     #dataframe
     df = pd.DataFrame(flux.T, columns=days, index=time_axis)
 
-    print(df)
+    # print(df)
 
     #create colormap
     plt.imshow(df, cmap='hot', interpolation='nearest')
@@ -45,26 +44,22 @@ def plot_solar_flux(file_name='Solar_Flux.txt', plotting=False):
     plt.xlabel('Martian Day')
     plt.ylabel('Martian Time [h]')
     plt.title('Solar Flux [W/m^2]')
+    if plotting:
+        plt.show()
+    plt.clf()
 
-    plt.show()
+    #get mean flux over the day
+    flux_avg = np.mean(flux, axis=1)
+    if plotting:
+        plt.plot(days, flux_avg)
+        plt.xlabel('Martian Day')
+        plt.ylabel('Average Solar Flux [W/m^2]')
+        plt.title('Average Solar Flux over the Day')
+        plt.grid()
+        plt.show()
 
-
-
-    #Integrate flux over time per day and plot
-    flux_integrated = np.trapz(flux, time_axis, axis=1)
-    #Calculate average solar flux
-    flux_avg = np.mean(flux_integrated)
-
-    plt.plot(days, flux_integrated)
-    plt.xlabel('Martian Day')
-    plt.ylabel('Integrated Solar Flux [J/m^2]')
-    plt.title('Integrated Solar Flux over Martian Days')
-    plt.annotate(f'Average Solar Flux: {flux_avg:.2f} J/m^2', (0.5, 0.5), xycoords='axes fraction')
-    plt.grid()
-    plt.show()
-
-    return flux_avg
+    return np.mean(flux_avg)
 
 if __name__ == '__main__':
-    plot_solar_flux('Solar_Flux.txt', plotting=True)
-
+    x = get_avg_solar_flux('Solar_Flux.txt', plotting=True)
+    print(x)
