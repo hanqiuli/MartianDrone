@@ -51,7 +51,7 @@ class Rotor:
     
     def calculate_single_blade_chord(self):
         """Calculates the chord of a single blade"""
-        self.A_blade = self.A_blade_total / (self.N_blades * self.r_disk)
+        self.c_blade = self.A_blade_total / (self.N_blades * self.r_disk)
 
     #  Formulas for masses
     def calculate_battery_mass(self, t_flight, E_specific):
@@ -62,7 +62,7 @@ class Rotor:
 
     def calculate_blade_mass(self):
         # calculates TOTAL blade mass
-        return 1.1 * self.A_blade * self.N
+        return 1.1 * self.A_blade_total
 
     def calculate_hub_mass(self, T_required):
         # calculate TOTAL hub mass
