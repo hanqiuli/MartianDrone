@@ -20,7 +20,6 @@ class Rotor:
 
     def required_params_per_rotor(self, T_required):
         """This function calculates the required parameters for a single rotor, T_required is the thrust required for a single rotor"""
-
         self.A_disk = (self.T_W_max * T_required) / self.T_A_disk
         self.r_disk = np.sqrt(self.A_disk / np.pi)
 
@@ -30,9 +29,6 @@ class Rotor:
     def calculate_ct_and_solidity(self, T_required):
         self.ct = (self.T_W_max * T_required) / (self.A_disk * ENV['rho'] * self.V_tip**2)
         self.sigma = self.ct / self.ct_sigma
-
-    def calculate_omega(self):
-        return self.V_tip / self.r_disk
 
     def calculate_power_per_rotor(self, T_required):
         self.P_per_rotor = self.k_hover * (self.T_W_max * T_required) * np.sqrt((self.T_W_max * T_required)/(2*ENV['rho']*self.A_disk)) + \
@@ -49,10 +45,6 @@ class Rotor:
             E_total = E_total / 3600
         return E_total
     
-    def calculate_single_blade_chord(self):
-        """Calculates the chord of a single blade"""
-        self.c_blade = self.A_blade_total / (self.N_blades * self.r_disk)
-
     #  Formulas for masses
     def calculate_battery_mass(self, t_flight, E_specific):
         return self.calculate_total_energy(t_flight, Wh=True) / E_specific
@@ -81,26 +73,6 @@ class Rotor:
         # Based on MSH paper
         return self.calculate_blade_mass() + self.calculate_hub_mass(T_required) + \
                 self.calculate_shaft_mass() + self.calculate_support_mass()
-
-    def calc_masses(self, T_required_tot, t_flight, E_spec):
-        ### Calculate power and energy
-        T_req_pr = T_required_tot / self.N
-
-        self.required_params_per_rotor(T_req_pr)
-        self.calculate_A_blade_total(T_req_pr)
-        self.calculate_ct_and_solidity(T_req_pr)
-        self.calculate_omega()
-        self.calculate_power_per_rotor(T_req_pr)
-        self.calculate_power_total()
-        self.calculate_total_energy(t_flight)
-
-        ### Calculate masses
-        W_sys = {}
-
-        W_sys['prop']    = ENV['g'] * (self.calculate_rotor_group_mass(T_req_pr) + self.calculate_motor_mass())
-        W_sys['battery'] = ENV['g'] *  self.calculate_battery_mass(t_flight, E_spec)
-
-        return W_sys
     
-    def figure_of_merit_calc(self, T_required):
-        self.figure_of_merit = (T_required * np.sqrt(T_required / (2 * ENV['rho'] * self.A_disk))) / self.P_per_rotor
+    def calculate_struct_mass(self, T_required):
+        return 28 * (T_required * self.N / ENV['g'] / 1000) ** (2/3) + 0.067 * T_required / ENV['g'] * self.N # NASA MSH Concept design
