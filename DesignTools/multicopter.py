@@ -7,7 +7,7 @@ from rotor import Rotor
 M_tip = 0.7     # Tip Mach number
 N = 6          # Number of ROTORS
 N_blades = 4    # Number of blades per rotor
-T_W_max = 1.5   # Thrust margin
+T_W_max = 1   # Thrust margin
 T_A_disk = 2.29*ENV['g']  # Disk loading [N/m^2]
 
 # Define aerodynamic constants for rotor
