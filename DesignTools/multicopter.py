@@ -17,14 +17,14 @@ cd_mean = cl_mean/10    # mean drag coefficient
 k_hover = 1.2           # induced/ideal power ratio
 
 # Define flight time and battery specific energy, as well as efficiency
-T_flight = 30*60 # s
+# T_flight = 30*60 # s
 E_bat = 250      # Wh/kg
 total_eff = 0.7
 
 # Define mass constants (in kg)
 # Note that these can be changed as needed
 
-m_payload = 11.07
+m_payload = 11.87
 m_avionics = 4.05
 m_comms = 2.9
 
