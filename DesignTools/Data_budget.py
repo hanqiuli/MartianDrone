@@ -54,7 +54,7 @@ def data():
              ['sensor data',data_rate_sens, data_rate_sens/8*10**(-6)],
              ['other', other, other/8*10**(-6)],
              ['total', data, data/8*10**(-6)]]
-    print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
-    return table
+    #print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
+    return data, table
 
 data()
