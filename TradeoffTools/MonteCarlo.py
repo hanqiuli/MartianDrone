@@ -5,97 +5,106 @@ import matplotlib.pyplot as plt
 # Define the scores
 scores = pd.DataFrame({
     'Option': ["Tiltwing", "Tiltrotor", "Blimp", "Hexacopter"],
-    'Power': [3, 1, 4, 3],
+    'Energy': [3, 1, 4, 3],
     'Controllability': [3, 3, 2, 4],
     'Mass': [4, 3, 3, 4],
-    'Design complexity': [2, 3, 4, 3],
+    'Design complexity': [2, 3, 4, 2],
     'V_maxrange': [4, 4, 3, 4]
 })
 
+# Define the total scores from excel
+total_excel_scores = [310, 240, 325, 335]
+
 # Initial weights as percentages (they sum to 1)
 initial_weights = np.array([0.35, 0.25, 0.15, 0.15, 0.10])
-perturbation_range = 0.4  # ±40%
+perturbation_range = 0.5  # ±50%
 
 # Number of simulations
 num_simulations = 10000
 
-# Initialize an array to store the simulation results
-simulation_results = np.zeros((num_simulations, len(scores)))
+# Function to perform Monte Carlo simulation
+def monte_carlo_simulation(weights, scores, criteria):
+    simulation_results = np.zeros((num_simulations, len(scores)))
+    for i in range(num_simulations):
+        # Perturb weights within ±50% of their initial values
+        perturbed_weights = weights * (1 + np.random.uniform(-perturbation_range, perturbation_range, weights.shape))
+        # Normalize the perturbed weights to sum to 1
+        perturbed_weights /= perturbed_weights.sum()
+        # Calculate the weighted scores
+        weighted_scores = np.dot(scores[criteria], perturbed_weights) * 100
+        # Store the results
+        simulation_results[i, :] = weighted_scores
+    # Convert results to a DataFrame
+    simulation_df = pd.DataFrame(simulation_results, columns=scores['Option'])
+    return simulation_df
 
-# Perform the Monte Carlo simulation
-for i in range(num_simulations):
-    # Perturb weights within ±40% of their initial values
-    perturbed_weights = initial_weights * (1 + np.random.uniform(-perturbation_range, perturbation_range, initial_weights.shape))
-    
-    # Normalize the perturbed weights to sum to 1
-    perturbed_weights /= perturbed_weights.sum()
-    
-    # Calculate the weighted scores
-    scores['Random_Weighted_Score'] = (
-        scores['Power'] * perturbed_weights[0] +
-        scores['Controllability'] * perturbed_weights[1] +
-        scores['Mass'] * perturbed_weights[2] +
-        scores['Design complexity'] * perturbed_weights[3] +
-        scores['V_maxrange'] * perturbed_weights[4]
-    )
-    
-    # Scale the scores so that they sum to 100
-    total_score = scores['Random_Weighted_Score'].sum()
-    scores['Scaled_Score'] = (scores['Random_Weighted_Score'] / total_score) * 100
-    
-    # Store the results
-    simulation_results[i, :] = scores['Scaled_Score']
+# Criteria list
+criteria = ['Energy', 'Controllability', 'Mass', 'Design complexity', 'V_maxrange']
 
-# Convert results to a DataFrame
-simulation_df = pd.DataFrame(simulation_results, columns=scores['Option'])
+# Perform simulation for the initial case
+simulation_df_initial = monte_carlo_simulation(initial_weights, scores, criteria)
 
 # Analyze the results
-summary_stats = simulation_df.describe()
+summary_stats_initial = simulation_df_initial.describe().drop('count').round(2)
+
+# Export summary statistics to CSV
+summary_stats_initial.to_csv('TradeoffTools/summary_stats_initial.csv')
 
 print("Summary statistics of the Monte Carlo simulation:")
-print(summary_stats)
+print(summary_stats_initial)
 
-# Plot the distribution of scores for each option as box plot
+# Plot the initial boxplot
 plt.figure(figsize=(12, 8))
-simulation_df.boxplot()
+ax = simulation_df_initial.boxplot()
+# Add the total scores from excel as scatter plot
+for i, score in enumerate(total_excel_scores):
+    plt.scatter(i + 1, score, color='red', marker='x', zorder=5, label='Actual Total Score' if i == 0 else "")
+# Labeling
 plt.xlabel('Options')
-plt.ylabel('Weighted Score')
-plt.title('Box Plot of Weighted Scores from Monte Carlo Simulation')
+plt.ylabel('Total score')
+plt.title('Sensitivity analysis of different configurations')
+plt.ylim(100, 400)
+plt.legend()
+plt.savefig('plots/Sensitivity/initial_boxplot.png')
 plt.show()
 
-# now, we also see the scores eliminating V_maxrange
+# List of criteria to eliminate one at a time
+all_simulation_dfs = {}
 
-# Define the scores
-scores = pd.DataFrame({
-    'Option': ["Tiltwing", "Tiltrotor", "Blimp", "Hexacopter"],
-    'Power': [3, 1, 4, 3],
-    'Controllability': [3, 3, 2, 4],
-    'Mass': [4, 3, 3, 4],
-    'Design complexity': [2, 3, 4, 3]
-})
+# Perform simulation by eliminating each criterion
+for criterion in criteria:
+    reduced_scores = scores.drop(columns=[criterion])
+    reduced_criteria = [c for c in criteria if c != criterion]
+    remaining_weights = np.delete(initial_weights, criteria.index(criterion))
+    redistributed_weights = remaining_weights + initial_weights[criteria.index(criterion)] / len(remaining_weights)
+    simulation_df = monte_carlo_simulation(redistributed_weights, reduced_scores, reduced_criteria)
+    all_simulation_dfs[criterion] = simulation_df
+    summary_stats = simulation_df.describe().drop('count').round(2)
+    summary_stats.to_csv(f'TradeoffTools/summary_stats_without_{criterion}.csv')
 
-# Initial weights as percentages (they sum to 1)
+    print(f"Summary statistics of the Monte Carlo simulation after eliminating {criterion}:")
+    print(summary_stats)
 
-initial_weights = np.array([0.35, 0.25, 0.20, 0.20])
+# Plot the boxplots for each configuration
+plt.figure(figsize=(20, 12))
 
-# Now we just plot the results without simulating again
-# Calculate the weighted scores
-scores['Weighted_Score'] = (
-    scores['Power'] * initial_weights[0] +
-    scores['Controllability'] * initial_weights[1] +
-    scores['Mass'] * initial_weights[2] +
-    scores['Design complexity'] * initial_weights[3]
-)
-
-# Scale the scores so that they sum to 100
-total_score = scores['Weighted_Score'].sum()
-scores['Scaled_Score'] = (scores['Weighted_Score'] / total_score) * 100
-
-# Plot the distribution of scores for each option as a bar chart
-
-plt.figure(figsize=(12, 8))
-plt.bar(scores['Option'], scores['Scaled_Score'])
+plt.subplot(2, 3, 1)
+simulation_df_initial.boxplot()
 plt.xlabel('Options')
-plt.ylabel('Weighted Score')
-plt.title('Weighted Scores of Different Drone Options, after eliminating V_maxrange')
+plt.ylabel('Total score')
+plt.title('Initial Configuration')
+plt.ylim(100, 400)
+for i, score in enumerate(total_excel_scores):
+    plt.scatter(i + 1, score, color='red', marker='x', zorder=5)
+
+for idx, (criterion, df) in enumerate(all_simulation_dfs.items()):
+    plt.subplot(2, 3, idx + 2)
+    df.boxplot()
+    plt.xlabel('Options')
+    plt.ylabel('Total score')
+    plt.title(f'After eliminating {criterion}')
+    plt.ylim(100, 400)
+
+plt.tight_layout()
+plt.savefig('plots/Sensitivity/boxplots_all_configurations.png')
 plt.show()
