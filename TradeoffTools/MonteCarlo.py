@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # Define the scores
 scores = pd.DataFrame({
     'Option': ["Tiltwing", "Tiltrotor", "Blimp", "Hexacopter"],
-    'Power': [3, 2, 4, 3],
+    'Power': [3, 1, 4, 3],
     'Controllability': [3, 3, 2, 4],
     'Mass': [4, 3, 3, 4],
     'Design complexity': [2, 3, 4, 3],
@@ -14,7 +14,7 @@ scores = pd.DataFrame({
 
 # Initial weights as percentages (they sum to 1)
 initial_weights = np.array([0.35, 0.25, 0.15, 0.15, 0.10])
-perturbation_range = 0.3  # ±30%
+perturbation_range = 0.4  # ±40%
 
 # Number of simulations
 num_simulations = 10000
@@ -24,7 +24,7 @@ simulation_results = np.zeros((num_simulations, len(scores)))
 
 # Perform the Monte Carlo simulation
 for i in range(num_simulations):
-    # Perturb weights within ±30% of their initial values
+    # Perturb weights within ±40% of their initial values
     perturbed_weights = initial_weights * (1 + np.random.uniform(-perturbation_range, perturbation_range, initial_weights.shape))
     
     # Normalize the perturbed weights to sum to 1
@@ -63,18 +63,39 @@ plt.ylabel('Weighted Score')
 plt.title('Box Plot of Weighted Scores from Monte Carlo Simulation')
 plt.show()
 
-# Optionally, plot the rankings distribution as box plot
-rankings = simulation_df.rank(axis=1, ascending=False)
+# now, we also see the scores eliminating V_maxrange
 
-print("\nSummary statistics of the rankings from the Monte Carlo simulation:")
-rank_summary = rankings.describe()
-print(rank_summary)
+# Define the scores
+scores = pd.DataFrame({
+    'Option': ["Tiltwing", "Tiltrotor", "Blimp", "Hexacopter"],
+    'Power': [3, 1, 4, 3],
+    'Controllability': [3, 3, 2, 4],
+    'Mass': [4, 3, 3, 4],
+    'Design complexity': [2, 3, 4, 3]
+})
 
-# Plot the ranking distribution for each option as box plot
+# Initial weights as percentages (they sum to 1)
+
+initial_weights = np.array([0.35, 0.25, 0.20, 0.20])
+
+# Now we just plot the results without simulating again
+# Calculate the weighted scores
+scores['Weighted_Score'] = (
+    scores['Power'] * initial_weights[0] +
+    scores['Controllability'] * initial_weights[1] +
+    scores['Mass'] * initial_weights[2] +
+    scores['Design complexity'] * initial_weights[3]
+)
+
+# Scale the scores so that they sum to 100
+total_score = scores['Weighted_Score'].sum()
+scores['Scaled_Score'] = (scores['Weighted_Score'] / total_score) * 100
+
+# Plot the distribution of scores for each option as a bar chart
+
 plt.figure(figsize=(12, 8))
-rankings.boxplot()
+plt.bar(scores['Option'], scores['Scaled_Score'])
 plt.xlabel('Options')
-plt.ylabel('Rank')
-plt.title('Box Plot of Rankings from Monte Carlo Simulation')
-plt.gca().invert_yaxis()  # Invert y-axis to have rank 1 at the top
+plt.ylabel('Weighted Score')
+plt.title('Weighted Scores of Different Drone Options, after eliminating V_maxrange')
 plt.show()

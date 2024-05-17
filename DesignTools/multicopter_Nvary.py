@@ -56,10 +56,6 @@ if __name__ == "__main__":
     global_radius_list = []
 
     for N in N_list:
-        # Initialize lists to store results
-        total_mass_list = []
-        total_power_list = []
-        radius_list = []
 
         # Initialize rotor object
         rotor_instance = Rotor(M_tip, N, N_blades, T_W_max=T_W_max, T_A_disk=T_A_disk, ct_sigma=ct_sigma, cl_mean=cl_mean, cd_mean=cd_mean, k_hover=k_hover, total_eff=total_eff)
