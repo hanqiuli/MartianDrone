@@ -18,10 +18,10 @@ temp_init   = 273.15 - 10   # [K]   Initial motor temperature
 temp_max    = 273.15 + 100  # [K]   Maximum motor temperature
 
 # Rotorcraft parameters
-mass                = 105.83    # [kg]  Total mass of the rotorcraft
-mass_motor_total    = 6.68      # [kg]  Total mass of the motors
-power_rotor_total   = 15473   # [W]   Total power of the rotors
-r_rotor             = 1.00      # [m]   Rotor radius
+mass                = 49.2    # [kg]  Total mass of the rotorcraft
+mass_motor_total    = 3.125      # [kg]  Total mass of the motors
+power_rotor_total   = 7232*0.7   # [W]   Total power of the rotors
+r_rotor             = 1.31      # [m]   Rotor radius
 n_rotors            = 6         # [-]   Number of rotors
 
 weight  = mass * g                          # [N]   Maximum thrust
@@ -29,20 +29,24 @@ A_disk = np.pi * r_rotor**2                 # [m^2] Single rotor disk area
 power_rotor = power_rotor_total / n_rotors  # [W]   Power per rotor
 
 # Motor parameters
-cp_motor    = 1825.0    # [J/(kg*K)]    Motor specific heat capacity
-k_motor     = 216.0     # [W/(m*K)]     Motor thermal conductivity
+cp_motor    = 900.0    # [J/(kg*K)]    Motor specific heat capacity
+k_motor     = 237.0     # [W/(m*K)]     Motor thermal conductivity
 eff_motor   = 0.70      # [-]           Motor efficiency
 D_motor     = 0.08      # [m]           Motor diameter
-mass_motor  = 0.65      # [kg]          Motor mass 
+# mass_motor  = 0.65      # [kg]          Motor mass 
 
-# mass_motor  = mass_motor_total / n_rotors   # [kg]          Motor mass
+mass_motor  = mass_motor_total / n_rotors   # [kg]          Motor mass
 power_motor = power_rotor / eff_motor       # [W] Motor power
 
+# Cruise parameters
+power_factor_cruise = 3/4
+t_cruise = 0  # in seconds
+
 # Fin parameters
-L_fin   = 0.07  # [m]       Fin length
-H_fin   = 0.04  # [m]       Fin height
+L_fin   = 0.05  # [m]       Fin length
+H_fin   = 0.03  # [m]       Fin height
 t_fin   = 0.001 # [m]       Fin thickness
-s_fin   = 0.001 # [m]       Fin spacing
+s_fin   = 0.002 # [m]       Fin spacing
 rho_fin = 2700  # [kg/m^3]  Fin density
 
 n_fins  = np.floor(np.pi * D_motor / (t_fin + s_fin))           # [-]   Number of fins
@@ -120,7 +124,15 @@ dt   = time[1] - time[0]
 temp_no_cool = np.zeros_like(time)
 temp_no_cool[0] = temp_init
 for i in range(1, len(time)):
-    temp_no_cool[i] = temp_no_cool[i-1] + power_motor * (1-eff_motor) * dt / (mass_motor * cp_motor)
+    if time[i] > 60:
+        if time[i] <= (60 + t_cruise):
+            power_effective = power_motor * (1 - eff_motor) * power_factor_cruise
+        else:
+            power_effective = power_motor * (1 - eff_motor)
+    else:
+        power_effective = power_motor * (1 - eff_motor)
+    
+    temp_no_cool[i] = temp_no_cool[i-1] + power_effective * dt / (mass_motor * cp_motor)
 
 # Calculate temperature rise with convective cooling
 temp_conv = np.zeros_like(time)
@@ -128,8 +140,17 @@ temp_conv[0] = temp_init
 for i in range(1, len(time)):
     # Calculate convective heat transfer from motor to surroundings
     heat_loss = (temp_conv[i-1] - temp_amb) / R_th
+    
+    if time[i] > 60:
+        if time[i] <= (60 + t_cruise):
+            power_effective = power_motor * (1 - eff_motor) * power_factor_cruise
+        else:
+            power_effective = power_motor * (1 - eff_motor)
+    else:
+        power_effective = power_motor * (1 - eff_motor)
+    
     # Calculate change in temperature
-    delta_temp = ((power_motor * (1 - eff_motor)) - heat_loss) * dt / ((mass_motor + mass_fin) * cp_motor)
+    delta_temp = (power_effective - heat_loss) * dt / ((mass_motor + mass_fin) * cp_motor)
     # Update temperature
     temp_conv[i] = temp_conv[i-1] + delta_temp
 
