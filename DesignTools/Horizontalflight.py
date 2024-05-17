@@ -18,7 +18,7 @@ class Horizontal:
    def __init__(self,      config,        b,             m_init,     M_MO,          V_stall,       *, 
                t_f=0.0015,  rho_f=2699,    CL_max=1.5,    w_max=4.5,  update_b=True, Range=20000,   Endurance=1800, 
                Cfc=0.005,  LambdaLE=0,    e_min=0.7,     e_max=0.85, eta_prop=0.6,  eta_power=0.7, E_spec=9e5,
-               Lf=2,       Rf=0.15):
+               Lf=3,       Rf=0.15):
       '''
       Inputs:
          config   [-]   design configuration          string     
@@ -133,6 +133,68 @@ class Horizontal:
       M_tip    = 0.7             # Tip Mach number
 
       self.rotor = Rotor(M_tip, N, N_blades)
+
+   def to_str(self, style="V"):
+      if style not in "VHI":
+         raise ValueError("String style is not valid, should be (V)ertical, (H)orizontal or (I)nline")
+
+      out_list = []
+      out_vals = []
+      out_str  = ""
+
+      out_list.append("Config:")
+      out_vals.append(self.config)
+
+      out_list.append("Drone mass:")
+      out_vals.append(self.m)
+
+      out_list.append("System mass:")
+      out_vals.append(self.W_sys)
+
+      out_list.append("Powers required for vertical flight:")
+      out_vals.append(self.P_req_v_cache)
+
+      out_list.append("Powers required for horizontal flight:")
+      out_vals.append(self.P_req_h_cache)
+
+      out_list.append("V_range:")
+      out_vals.append(self.V_r)
+
+      out_list.append("r_disk:")
+      out_vals.append(self.rotor.r_disk)
+
+      out_list.append("S:")
+      out_vals.append(self.S_opt)
+
+      out_list.append("V_stall:")
+      out_vals.append(self.V(self.CL_max, self.S_opt))
+
+      if style == "V":
+         for _ in range(len(out_list)):
+            out_str += out_list.pop(0) + "\n"
+            out_val  = out_vals.pop(0)
+
+            if isinstance(out_val, np.ndarray):
+               out_str += np.array2string(out_val) + "\n"
+            elif isinstance(out_val, float) or isinstance(out_val, int):
+               out_str += str(out_val) + "\n"
+            elif isinstance(out_val, str):
+               out_str += out_val + "\n"
+            elif isinstance(out_val, dict):
+               for key, val in out_val.items():
+                  out_str += f"{key} \t {val}\n"
+            else:
+               raise TypeError(f"Printed value {out_val} of type {type(out_val)} is not printable currently.")
+            
+            out_str += "\n"
+            
+
+
+      return out_str
+
+   def print(self, style="V"):
+      print(self.to_str(style))
+      
          
 
    def GetAero(self, S):
@@ -329,7 +391,7 @@ class Horizontal:
         (AR / (sweep_cos**0.57)) *
         (S / 100)**0.61 *
         (1 + taper / 2 / t_c_root)**0.36 *
-        (1 + ((0.7 * ENV['a']) / 500)**0.5)**0.993
+        (1 + (self.V_MO / 500)**0.5)**0.993
       )
 
       self.W_sys['wing'] = ENV['g'] * M_wing 
@@ -364,7 +426,7 @@ class Horizontal:
 
       ### Horizontal step
       S_low  = 0.3
-      S_high = 20
+      S_high = 2.5*self.b
       S_res  = 0.0001
       S = np.arange(S_low, (S_high+S_res), S_res)
 
@@ -415,7 +477,7 @@ class Horizontal:
       if P_req_h > P_req_v:
          raise NotImplementedError(f"Horizontal power required, {P_req_h}, is larger than vertical power required, {P_req_v}.\nThis case has not been covered yet")
 
-      V_opt_range = self.V_opt_range(S_opt) # Calculate the optimal range velocity
+      V_opt_range = self.V(self.CLrange(S_opt), S_opt) # Calculate the optimal range velocity
       return S_opt, W_opt, P_req_h, P_req_v, V_opt_range
 
    def iteration(self, IterMax, eps=1e-6, plotSave=True, plotShow=False):
@@ -456,102 +518,70 @@ class Horizontal:
       for key, val in self.W_sys.items():
          self.W_sys[key] = round(val, 3)
 
-   def find_max_endurance(self, IterMax=1000, eps=1e-6, plotSave=False, plotShow=False):
-
-      endurance_values = np.linspace(0, 3600, 60)  # Adjust this range based on expected endurance times
-      valid_endurance = []
-
-      for endurance in endurance_values:
-         try:
-            self.Endurance = endurance
-            self.iteration(IterMax, eps, plotSave, plotShow)
-            valid_endurance.append(endurance)
-         except:
-            break
-
-      max_endurance = valid_endurance[-1] if valid_endurance else 0
-      return max_endurance
-
 
 
 
 
 if __name__=="__main__":
-   b = 4
+   b = 6
    
    LambdaLE = 0 #sweep angle LE (rad)
    Sf = np.pi*2*0.3
    Cfc = 0.005
 
-   hTR  = Horizontal('tiltrotor', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
-   hTW2 = Horizontal('tiltwing2', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
-   hTW4 = Horizontal('tiltwing4', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1800)
+   hTR  = Horizontal('tiltrotor', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1200)
+   hTW2 = Horizontal('tiltwing2', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1200)
+   hTW4 = Horizontal('tiltwing4', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = 1200)
 
    hTR .iteration(100, plotShow=False)
    hTW2.iteration(100, plotShow=False)
    hTW4.iteration(100, plotShow=False)
 
-
-   print("Tiltrotor, Tiltwing2, Tiltwing4:")
-
-   print("Drone mass:")
-   print(hTR.m)
-   print(hTW2.m)
-   print(hTW4.m)
-
-   print("System mass:")
-   print(hTR.W_sys)
-   print(hTW2.W_sys)
-   print(hTW4.W_sys)
-
-   print("Powers required for vertical flight:")
-   print(hTR.P_req_v_cache)
-   print(hTW2.P_req_v_cache)
-   print(hTW4.P_req_v_cache)
-
-   print("Powers required for horizontal flight:")
-   print(hTR.P_req_h_cache)
-   print(hTW2.P_req_h_cache)
-   print(hTW4.P_req_h_cache)
-
-   print("V_range:")
-   print(hTR.V_r)
-   print(hTW2.V_r)
-   print(hTW4.V_r)
-
-   print("r_disk:")
-   print(hTR.rotor.r_disk)
-   print(hTW2.rotor.r_disk)
-   print(hTW4.rotor.r_disk)
-
-   print("S:")
-   print(hTR.S_opt)
-   print(hTW2.S_opt)
-   print(hTW4.S_opt)
-
-   print("V_stall:")
-   print(hTR.V(hTR.CL_max, hTR.S_opt))
-   print(hTW2.V(hTW2.CL_max, hTW2.S_opt))
-   print(hTW4.V(hTW4.CL_max, hTW4.S_opt))
-
+   hTR.print()
+   hTW2.print()
+   hTW4.print()
 
 
    if False:
-      max_endurance_TR = hTR.find_max_endurance(plotShow=False, plotSave=False)
-      max_endurance_TW2 = hTW2.find_max_endurance(plotShow=False, plotSave=False)
-      max_endurance_TW4 = hTW4.find_max_endurance(plotShow=False, plotSave=False)
+      print("Tiltrotor, Tiltwing2, Tiltwing4:")
 
-      print(f"Max Endurance for tiltrotor: {max_endurance_TR} seconds")
-      print(f"Max Endurance for tiltwing2: {max_endurance_TW2} seconds")
-      print(f"Max Endurance for tiltwing4: {max_endurance_TW4} seconds")
+      print("Drone mass:")
+      print(hTR.m)
+      print(hTW2.m)
+      print(hTW4.m)
 
-      # Now we fetch the data using the max endurance time
-      
-      hTR = Horizontal('tiltrotor', b*1.7, 82.23, 0.7 , V_stall = 100, update_b=False, Endurance= max_endurance_TR)
-      hTW2 = Horizontal('tiltwing2', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW2)
-      hTW4 = Horizontal('tiltwing4', b, 82.23, 0.7 , V_stall = 110, update_b=False, Endurance = max_endurance_TW4)
+      print("System mass:")
+      print(hTR.W_sys)
+      print(hTW2.W_sys)
+      print(hTW4.W_sys)
 
-      # Print power, mass, V_range
-      hTR.iteration(100, plotShow=True)
-      hTW2.iteration(100)
-      hTW4.iteration(100)
+      print("Powers required for vertical flight:")
+      print(hTR.P_req_v_cache)
+      print(hTW2.P_req_v_cache)
+      print(hTW4.P_req_v_cache)
+
+      print("Powers required for horizontal flight:")
+      print(hTR.P_req_h_cache)
+      print(hTW2.P_req_h_cache)
+      print(hTW4.P_req_h_cache)
+
+      print("V_range:")
+      print(hTR.V_r)
+      print(hTW2.V_r)
+      print(hTW4.V_r)
+
+      print("r_disk:")
+      print(hTR.rotor.r_disk)
+      print(hTW2.rotor.r_disk)
+      print(hTW4.rotor.r_disk)
+
+      print("S:")
+      print(hTR.S_opt)
+      print(hTW2.S_opt)
+      print(hTW4.S_opt)
+
+      print("V_stall:")
+      print(hTR.V(hTR.CL_max, hTR.S_opt))
+      print(hTW2.V(hTW2.CL_max, hTW2.S_opt))
+      print(hTW4.V(hTW4.CL_max, hTW4.S_opt))
+
