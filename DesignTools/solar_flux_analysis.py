@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 
-
 def get_avg_solar_flux(file_name='Solar_Flux.txt', plotting=False):
     file_path = os.path.join('DesignTools/data', 'Solar_Flux.txt')
 
@@ -58,7 +57,7 @@ def get_avg_solar_flux(file_name='Solar_Flux.txt', plotting=False):
         plt.grid()
         plt.show()
 
-    return np.mean(flux_avg)
+    return days, flux_avg
 
 if __name__ == '__main__':
     x = get_avg_solar_flux('Solar_Flux.txt', plotting=True)
