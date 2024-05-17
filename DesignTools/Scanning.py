@@ -18,7 +18,7 @@ def res_HD():
     ratio = rx_hor / rx_ver
     return (rx_hor, rx_ver, ratio)
 
-rx_hor,rx_ver,ratio = res_8k()
+#rx_hor,rx_ver,ratio = res_8k()
 h     = 100 #m
 AFOV_h = np.deg2rad(25) #rad (input deg)
 AFOV_v = np.deg2rad(12.5) #rad (input deg)
@@ -34,8 +34,8 @@ def scanning(h,v,AFOV_h,AFOV_v):
 
     res_h = FOV_h/rx_hor*1000 #spatial res of image [mm]
     res_v = FOV_v/rx_ver*1000
-    return(FOV_h,FOV_v,scan_lin,scan_time,res_h,res_v)
+    return(FOV_h,FOV_v,scan_lin,scan_time,res_h,res_v, h, v)
 
-FOV_h,FOV_v,scan_lin,scan_time,res_h,res_v = scanning(h,v,AFOV_h,AFOV_v)
+FOV_h,FOV_v,scan_lin,scan_time,res_h,res_v,h,v = scanning(h,v,AFOV_h,AFOV_v)
 
 print(scanning(h,v,AFOV_h,AFOV_v))
