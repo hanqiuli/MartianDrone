@@ -387,7 +387,7 @@ class Horizontal:
       # taken from paper. 2.25 is assumed ultimate load factor
       M_wing = (
         96.948 *
-        (self.m * 2.25 / 10**5)**0.65 *
+        (self.m * Nz / 10**5)**0.65 *
         (AR / (sweep_cos**0.57)) *
         (S / 100)**0.61 *
         (1 + taper / 2 / t_c_root)**0.36 *
@@ -452,8 +452,7 @@ class Horizontal:
       
       if S_opt < S_low+S_res/2 or S_opt > S_high-S_res/2:
          print(f"Optimal S is an endpoint: S = {S_opt}, indicating bad bounds or divergence")
-      
-      
+
 
       # Streamlines values back to floats (lazily) (also performes partial iteration, source of error???)
       self.m = W_opt/ENV['g']

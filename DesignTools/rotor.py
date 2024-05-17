@@ -62,7 +62,7 @@ class Rotor:
 
     def calculate_blade_mass(self):
         # calculates TOTAL blade mass
-        return 1.1 * self.A_blade_total
+        return 1.1 * self.A_blade_total * self.N
 
     def calculate_hub_mass(self, T_required):
         # calculate TOTAL hub mass
