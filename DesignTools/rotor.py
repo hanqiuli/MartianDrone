@@ -66,7 +66,7 @@ class Rotor:
 
     def calculate_hub_mass(self, T_required):
         # calculate TOTAL hub mass
-        return 0.05 * T_required * self.N
+        return 0.05 * T_required / ENV['g'] * self.N
 
     def calculate_shaft_mass(self):
         # calculate TOTAL shaft mass

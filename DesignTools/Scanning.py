@@ -38,4 +38,4 @@ def scanning(h,v,AFOV_h,AFOV_v):
 
 FOV_h,FOV_v,scan_lin,scan_time,res_h,res_v,h,v = scanning(h,v,AFOV_h,AFOV_v)
 
-#print(scanning(h,v,AFOV_h,AFOV_v))
+print(scanning(h,v,AFOV_h,AFOV_v))
