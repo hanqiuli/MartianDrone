@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from environment_properties import ENV
-from DesignTools.rotor_new import Rotor
+from rotor_new import Rotor
 
 #Define design parameters
 M_tip = 0.7     # Tip Mach number
@@ -68,13 +68,15 @@ if __name__ == "__main__":
         i += 1
 
     print("SEPARATION LINE --------------------------------------------")
+    print(f"Number of iterations: {i}")
     print(f"Endurance: {T_flight} seconds")
     print(f"Total drone mass: {m_drone} kg")
     print(f"Rotor group mass: {m_rotor_group} kg")
     print(f"Motor mass: {m_motor} kg")
     print(f"Battery mass: {m_bat} kg")
     print(f"Structural mass: {m_struct} kg")
-    print(f"Total power: {power_history[-1]} W")
+    print(f"Total motor power: {power_history[-1]} W")
     print(f"Total energy: {energy_history[-1]} Wh")
     print(f"Rotor radius: {rotor_instance.r_disk} m")
+    print(f"Rotor solidity: {rotor_instance.sigma}")
     print("SEPARATION LINE --------------------------------------------")
