@@ -97,19 +97,36 @@ for mu in advance_ratios:
 # endregion
 
 # region Plotting
-def plot_curve(x, y_list, xlabel, ylabel):
-    for y in y_list:
-        plt.plot(x, y)
+def plot_curve(x, y, xlabel, ylabel):
+    plt.plot(x, y)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.grid(which='both')
-    if len(y_list) > 1:
-        plt.legend()
+    plt.grid(which='both', linestyle='--', linewidth=0.5)
     plt.minorticks_on()
     plt.show()
 
-plot_curve(advance_ratios, [powers], 'Advance Ratio $\mu$', 'Power $P_r$ [W]')
-plot_curve(advance_ratios, [CP_is, CP_os, CP_ps], 'Advance Ratio $\mu$', 'Power Coefficients')
-plot_curve(advance_ratios, [[CP_is[i]/CPs[i] for i in range(len(CPs))], [CP_os[i]/CPs[i] for i in range(len(CPs))], [CP_ps[i]/CPs[i] for i in range(len(CPs))]], 'Advance Ratio $\mu$', 'Power Fractions')
-plot_curve(airspeeds, [powers], 'Airspeed $V$ [m/s]', 'Power $P_r$ [W]')
+def plot_curves(x, ys, labels, xlabel, ylabel):
+    for y, label in zip(ys, labels):
+        plt.plot(x, y, label=label)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(which='both', linestyle='--', linewidth=0.5)
+    plt.minorticks_on()
+    plt.legend(prop={'size': 8}, ncol=1)
+    plt.show()
+
+plot_curve(advance_ratios, powers, 'Advance Ratio $\mu$', 'Power $P_r$ [W]')
+plot_curve(airspeeds, powers, 'Airspeed $V$ [m/s]', 'Power $P_r$ [W]')
+plot_curves(advance_ratios, [CP_is, CP_os, CP_ps, CPs], ['Induced Power Coefficient $C_{P_i}$',
+                                                         'Profile Power Coefficient $C_{P_o}$',
+                                                         'Parasite Power Coefficient $C_{P_p}$',
+                                                         'Total Power Coefficient $C_P$'], 
+                                                         'Advance Ratio $\mu$', 'Power Coefficient $C_P$')
+plot_curves(advance_ratios, [np.divide(CP_is, CPs), 
+                             np.divide(CP_os, CPs), 
+                             np.divide(CP_ps, CPs)], ['Induced Power Ratio $C_{P_i}/C_P$',
+                                                      'Profile Power Ratio $C_{P_o}/C_P$',
+                                                      'Parasite Power Ratio $C_{P_p}/C_P$'],
+                                                      'Advance Ratio $\mu$', 'Power Ratio')
+
 # endregion
