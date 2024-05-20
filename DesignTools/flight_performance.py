@@ -36,8 +36,8 @@ def calc_induced_power_coeff(k_hover, mu, CT):
 
 def calc_profile_power_coeff(mu, sigma, cl_cd):
     cd_o = calc_profile_drag_coeff(CT_sigma, cl_cd)
-    Fp_o = calc_profile_power_factor(mu)
-    CP_o = sigma * cd_o / 8 * Fp_o
+    FP_o = calc_profile_power_factor(mu)
+    CP_o = sigma * cd_o / 8 * FP_o
     return CP_o
 
 def calc_parasite_power_coeff(mu, m, A):
@@ -72,7 +72,7 @@ V_tip = M_tip * a
 A_rotor = np.pi * r_rotor**2
 A_tot = n_rotors * A_rotor
 CT = CT_sigma * sigma
-dims = rho * A_tot * V_tip**3
+powdim = rho * A_tot * V_tip**3
 # endregion
 # endregion
 
@@ -83,39 +83,47 @@ CP_is = calc_induced_power_coeff(k_hover, advance_ratios, CT)
 CP_os = calc_profile_power_coeff(advance_ratios, sigma, cl_cd)
 CP_ps = calc_parasite_power_coeff(advance_ratios, m, A_tot)
 CPs = CP_is + CP_os + CP_ps
-powers = CPs * dims
+powers = CPs * powdim
 # endregion
 
 # region Plotting
-def plot_curve(x, y, xlabel, ylabel):
-    plt.plot(x, y)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.grid(which='both', linestyle='--', linewidth=0.5)
-    plt.minorticks_on()
-    plt.show()
+plt.plot(advance_ratios, powers)
+plt.xlabel('Advance Ratio $\mu$')
+plt.ylabel('Power $P_r$ [W]')
+plt.grid(which='both', linestyle=':', linewidth=0.5)
+plt.minorticks_on()
+plt.show()
 
-def plot_curves(x, ys, labels, xlabel, ylabel):
-    for y, label in zip(ys, labels):
-        plt.plot(x, y, label=label)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.grid(which='both', linestyle='--', linewidth=0.5)
-    plt.minorticks_on()
-    plt.legend(prop={'size': 8}, ncol=1)
-    plt.show()
+plt.plot(airspeeds, powers)
+plt.xlabel('Airspeed $V$ [m/s]')
+plt.ylabel('Power $P_r$ [W]')
+plt.grid(which='both', linestyle=':', linewidth=0.5)
+plt.minorticks_on()
+plt.show()
 
-plot_curve(advance_ratios, powers, 'Advance Ratio $\mu$', 'Power $P_r$ [W]')
-plot_curve(airspeeds, powers, 'Airspeed $V$ [m/s]', 'Power $P_r$ [W]')
-plot_curves(advance_ratios, [CP_is, CP_os, CP_ps, CPs], ['Induced Power Coefficient $C_{P_i}$',
-                                                         'Profile Power Coefficient $C_{P_o}$',
-                                                         'Parasite Power Coefficient $C_{P_p}$',
-                                                         'Total Power Coefficient $C_P$'], 
-                                                         'Advance Ratio $\mu$', 'Power Coefficient $C_P$')
-plot_curves(advance_ratios, [np.divide(CP_is, CPs), 
-                             np.divide(CP_os, CPs), 
-                             np.divide(CP_ps, CPs)], ['Induced Power Ratio $C_{P_i}/C_P$',
-                                                      'Profile Power Ratio $C_{P_o}/C_P$',
-                                                      'Parasite Power Ratio $C_{P_p}/C_P$'],
-                                                      'Advance Ratio $\mu$', 'Power Ratio')
+labels = ['Induced Power Coefficient $C_{P_i}$',
+          'Profile Power Coefficient $C_{P_o}$',
+          'Parasite Power Coefficient $C_{P_p}$',
+          'Total Power Coefficient $C_P$']
+for y, label in zip([CP_is, CP_os, CP_ps, CPs], labels):
+    plt.plot(advance_ratios, y, label=label)
+plt.xlabel('Advance Ratio $\mu$')
+plt.ylabel('Power Coefficient $C_P$')
+plt.grid(which='both', linestyle=':', linewidth=0.5)
+plt.minorticks_on()
+plt.legend(prop={'size': 8}, ncol=1)
+plt.show()
+
+labels = ['Induced Power Ratio $C_{P_i}/C_P$',
+          'Profile Power Ratio $C_{P_o}/C_P$',
+          'Parasite Power Ratio $C_{P_p}/C_P$']
+ratios = [CP_is, CP_os, CP_ps]
+for y, label in zip(np.divide(ratios, CPs), labels):
+    plt.plot(advance_ratios, y, label=label)
+plt.xlabel('Advance Ratio $\mu$')
+plt.ylabel('Power Ratio')
+plt.grid(which='both', linestyle=':', linewidth=0.5)
+plt.minorticks_on()
+plt.legend(prop={'size': 8}, ncol=1)
+plt.show()
 # endregion
