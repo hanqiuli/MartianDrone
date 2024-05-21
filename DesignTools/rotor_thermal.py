@@ -1,12 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from environment_properties import ENV
 
-# Martian atmosphere
-rho_air     = 1.7e-2    # [kg/m^3]      Air density
-g           = 3.71      # [m/s^2]       Gravitational acceleration
+# region Constants
+rho_air     = ENV['rho']    # [kg/m^3]      Air density
+g           = ENV['g']      # [m/s^2]       Gravitational acceleration
+dyn_vsc_air = ENV['mu']   # [Pa*s]        Air dynamic viscosity
 temp_amb    = 220       # [K]           Ambient temperature
 cp_air      = 772       # [J/(kg*K)]    Specific heat capacity of air
-dyn_vsc_air = 1.13e-5   # [Pa*s]        Air dynamic viscosity
 k_air       = 0.024     # [W/(m*K)]     Air thermal conductivity
 sigma       = 5.67e-8   # Stefan-Boltzmann constant [W/(m^2*K^4)]
 
@@ -40,13 +41,14 @@ power_motor = power_rotor / eff_motor       # [W] Motor power
 
 # Cruise parameters
 power_factor_cruise = 3/4
-t_cruise = 0  # in seconds
+t_cruise = 1200  # in seconds
+# endregion
 
-# Fin parameters
-L_fin   = 0.05  # [m]       Fin length
-H_fin   = 0.03  # [m]       Fin height
-t_fin   = 0.001 # [m]       Fin thickness
-s_fin   = 0.002 # [m]       Fin spacing
+# region Fin calculations
+L_fin   = 0.06  # [m]       Fin length
+H_fin   = 0.04  # [m]       Fin height
+t_fin   = 0.003 # [m]       Fin thickness
+s_fin   = 0.001 # [m]       Fin spacing
 rho_fin = 2700  # [kg/m^3]  Fin density
 
 n_fins  = np.floor(np.pi * D_motor / (t_fin + s_fin))           # [-]   Number of fins
@@ -72,8 +74,9 @@ print(f'Fin volume: {volume_fin} m^3')
 print(f'Fin mass: {mass_fin} kg')
 print(f'Total fin mass: {mass_fin_total} kg')
 print(f'Total motor mass excl. fins: {mass_motor_total} kg')
+# endregion
 
-# Heat transfer calculations
+# region Heat transfer functions
 def calc_w_rotor(A_disk, air_density, weight, n_rotors): # Rotor downwash velocity
     return np.sqrt(weight / n_rotors/(2*A_disk*air_density))
 
@@ -90,16 +93,18 @@ def calc_h(Nu, k_air, L_fin): # Convective heat transfer coefficient
     return Nu * k_air / L_fin
 
 def calc_eff_fin(h, P_fin, k_s, A_c, A_f): # Fin efficiency
-    cock = np.sqrt(h * P_fin / (k_s * A_c))
+    const = np.sqrt(h * P_fin / (k_s * A_c))
     u1 = np.sqrt(h * P_fin * k_s * A_c)
-    u2 = np.tanh(cock * H_fin) + h / (cock * k_s)
+    u2 = np.tanh(const * H_fin) + h / (const * k_s)
     l1 = h * A_f
-    l2 = 1 + h / (cock * k_s) * np.tanh(cock * H_fin)
+    l2 = 1 + h / (const * k_s) * np.tanh(const * H_fin)
     return u1 / l1 * u2 / l2
 
 def calc_R_th(h, eff_fin, n_fins, A_f, A_b): # Thermal resistance
     return 1 / (h * (eff_fin * n_fins * A_f + A_b))
+# endregion
 
+# region Convection calculations
 w_rotor = calc_w_rotor(A_disk, rho_air, weight, n_rotors)
 Pr      = calc_Pr(kin_vsc_air, alpha_air)
 Re      = calc_Re(kin_vsc_air, L_fin, w_rotor)
@@ -116,7 +121,9 @@ print(f'Nu: {Nu}')
 print(f'h: {h} W/(m^2*K)')
 print(f'eff_fin: {eff_fin}')
 print(f'R_th: {R_th} K/W')
+# endregion
 
+# region Thermal simulation
 time = np.linspace(0, 30*60, 1000)
 dt   = time[1] - time[0]
 
@@ -163,17 +170,20 @@ time_max_conv = np.argmax(temp_conv >= temp_max) * dt
 print('--- TIME TO REACH MAXIMUM TEMPERATURE ---')
 print(f'No cooling: {time_max_no_cool/60} min')
 print(f'Convective cooling: {time_max_conv/60} min')
+# endregion
 
-# Plot results
+# region Plotting
 plt.figure(figsize=(10, 6))
 
 plt.plot(time/60, temp_no_cool - 273.15, label='Without cooling')
 plt.plot(time/60, temp_conv - 273.15, label='With convective cooling')
 plt.plot([0, time[-1]/60], [temp_max-273.15, temp_max-273.15], 'k--', label='Maximum temperature')
-
-plt.xlabel('Time [min]')
-plt.ylabel('Temperature [deg C]')
-plt.title('Motor temperature over time with convective cooling')
-plt.legend()
+plt.xlim(left=0)
+plt.ylim([temp_init-273.15 - 10, temp_max-273.15 + 20])
+plt.xlabel('Time [min]', fontsize=14)
+plt.ylabel('Temperature [°C]', fontsize=14)
+plt.tick_params(axis='both', which='major', labelsize=14)
+plt.legend(fontsize=14)
 plt.grid()
 plt.show()
+# endregion
