@@ -135,8 +135,8 @@ class Horizontal:
       self.rotor = Rotor(M_tip, N, N_blades)
 
    def to_str(self, style="V"):
-      if style not in "VHI":
-         raise ValueError("String style is not valid, should be (V)ertical, (H)orizontal or (I)nline")
+      if style not in "VI":
+         raise ValueError("String style is not valid, should be (V)ertical or (I)nline")
 
       out_list = []
       out_vals = []
@@ -169,33 +169,33 @@ class Horizontal:
       out_list.append("V_stall:")
       out_vals.append(self.V(self.CL_max, self.S_opt))
 
-      if style == "V":
-         for _ in range(len(out_list)):
-            out_str += out_list.pop(0) + "\n"
-            out_val  = out_vals.pop(0)
+      largestlen = 0
+      for i in range(len(out_list)):
+         largestlen = max(len(out_list[i]), largestlen)
 
-            if isinstance(out_val, np.ndarray):
-               out_str += np.array2string(out_val) + "\n"
-            elif isinstance(out_val, float) or isinstance(out_val, int):
-               out_str += str(out_val) + "\n"
-            elif isinstance(out_val, str):
-               out_str += out_val + "\n"
-            elif isinstance(out_val, dict):
-               for key, val in out_val.items():
-                  out_str += f"{key} \t {val}\n"
-            else:
-               raise TypeError(f"Printed value {out_val} of type {type(out_val)} is not printable currently.")
+         out_val     = out_vals[i]
+         out_vals[i] = ""
+         if isinstance(out_val, np.ndarray):
+            out_vals[i] += np.array2string(out_val.flatten()[0]) + "\n"
+         elif isinstance(out_val, float) or isinstance(out_val, int):
+            out_vals[i] += str(out_val) + "\n"
+         elif isinstance(out_val, str):
+            out_vals[i] += out_val + "\n"
+         elif isinstance(out_val, dict):
+            for key, val in out_val.items():
+               out_vals[i] += f"{key} \t {val}\n"
+         else:
+            raise TypeError(f"Printed value {out_val} of type {type(out_val)} is not printable currently.")
+
+      for _ in range(len(out_list)):
+         out_str += out_list.pop(0) + "\n"
+         out_val  = out_vals.pop(0)
+         out_str += out_val + "\n"
             
-            out_str += "\n"
-            
-
-
       return out_str
 
    def print(self, style="V"):
-      print(self.to_str(style))
-      
-         
+      print(self.to_str(style))    
 
    def GetAero(self, S):
       '''
@@ -210,7 +210,7 @@ class Horizontal:
       AR = self.b**2/S
 
       # No LE wing sweep
-      if abs(self.LambdaLE) < 0.05:
+      if abs(self.LambdaLE) < 0.5:
          e = 1.78*(1-0.045*AR**0.68)-0.64
 
       # LE wing sweep
@@ -397,19 +397,6 @@ class Horizontal:
       self.W_sys['wing'] = ENV['g'] * M_wing 
 
       return self.W_sys
-      
-   def V_opt_range(self, S):
-      '''
-         Inputs:
-         S        [m^2] Wing surface area             array-like
-      Outputs:
-         V_opt_r  [m/s] Optimal airspeed for maximum range array-like
-      '''
-      CL_opt_r = self.CLrange(S)
-      W = self.m * ENV['g']
-      V_opt_r = np.sqrt((2 * W) / (ENV['rho'] * S * CL_opt_r))
-
-      return V_opt_r
 
    def iterate_step(self):
       ### Rotor step
