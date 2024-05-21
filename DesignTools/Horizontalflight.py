@@ -215,7 +215,7 @@ class Horizontal:
 
       # LE wing sweep
       else:
-         e = 4.61*(1-0.045*AR**0.68)-3.1
+         e = 4.61*(1-0.045*AR**0.68)*np.cos(self.LambdaLE)**0.15-3.1
 
       e = np.clip(e, self.e_min, self.e_max)
       
@@ -297,26 +297,26 @@ class Horizontal:
       CL_opt_e = np.maximum(CL_opt_e, CL_min)
       return CL_opt_e
 
-   def P_req_h(self, CL_opt_r, V_req_r, Cd_r, W):
+   def P_req_h(self, CL_opt_r, V_req_r, CD_r, W):
       '''
       Inputs:
          CL       [-]   Optimal lift coefficient for                    array-like
          V_req    [m/s] Required true airspeed                          array-like
-         Cd       [-]   Drag coefficient                                array-like
+         CD       [-]   Drag coefficient                                array-like
          W        [N]   Weight                                          array-like
       Outputs:
          P_req    [W]   Required power for horizontal flight            array-like
       '''
 
       
-      return (Cd_r / CL_opt_r * W * V_req_r)
+      return (CD_r / CL_opt_r * W * V_req_r)
    
    def Getweight(self, S, W_prop, W_bat_v):
       '''
       Inputs:
          S        [m^2] Wing surface area             array-like
          W_prop   [N]   Weight of propulsion system   array-like
-         W_bat
+         W_bat_v  [N]   Weight of battery for vert    array-like
       Outputs:
          W_tot    [N]   Total weight of iteration     array-like
       '''
@@ -387,7 +387,7 @@ class Horizontal:
       # taken from paper. 2.25 is assumed ultimate load factor
       M_wing = (
         96.948 *
-        (self.m * Nz / 10**5)**0.65 *
+        (self.m * ENV['g'] * Nz / 10**5)**0.65 *
         (AR / (sweep_cos**0.57)) *
         (S / 100)**0.61 *
         (1 + taper / 2 / t_c_root)**0.36 *
