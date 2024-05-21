@@ -15,7 +15,6 @@ def ql(a,b, name, cat):
    if not cmp(a,b):
       print(name, "\t", a/b)
 
-
 if __name__ == "__main__":
    test = Test()
    t = test.testlog
