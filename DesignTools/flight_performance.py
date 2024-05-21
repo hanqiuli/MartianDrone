@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import fsolve
+from environment_properties import ENV
 
 # region Functions
 def calc_parasite_drag_area(m):
@@ -34,7 +36,7 @@ def calc_induced_power_coeff(k_hover, mu, CT):
     CP_i = k_i * CT**2 / (2 * np.sqrt(mu**2 + la**2))
     return CP_i
 
-def calc_profile_power_coeff(mu, sigma, cl_cd):
+def calc_profile_power_coeff(mu, sigma, CT_sigma, cl_cd):
     cd_o = calc_profile_drag_coeff(CT_sigma, cl_cd)
     FP_o = calc_profile_power_factor(mu)
     CP_o = sigma * cd_o / 8 * FP_o
@@ -47,11 +49,6 @@ def calc_parasite_power_coeff(mu, m, A):
 # endregion
 
 # region Constants
-# region Atmospheric Constants
-rho = 0.017  # kg/m^3
-a = 233.1 # m/s
-g = 3.71 # m/s^2
-# endregion
 
 # region Aerodynamic Constants
 M_tip = 0.7
@@ -68,11 +65,11 @@ n_rotors = 6
 # endregion
 
 # region Derived Values
-V_tip = M_tip * a
+V_tip = M_tip * ENV['a']
 A_rotor = np.pi * r_rotor**2
 A_tot = n_rotors * A_rotor
 CT = CT_sigma * sigma
-powdim = rho * A_tot * V_tip**3
+powdim = ENV['rho'] * A_tot * V_tip**3
 # endregion
 # endregion
 
@@ -80,22 +77,37 @@ powdim = rho * A_tot * V_tip**3
 advance_ratios = np.linspace(0.0, 0.5, 100)
 airspeeds = advance_ratios * V_tip
 CP_is = calc_induced_power_coeff(k_hover, advance_ratios, CT)
-CP_os = calc_profile_power_coeff(advance_ratios, sigma, cl_cd)
+CP_os = calc_profile_power_coeff(advance_ratios, sigma, CT_sigma, cl_cd)
 CP_ps = calc_parasite_power_coeff(advance_ratios, m, A_tot)
 CPs = CP_is + CP_os + CP_ps
 powers = CPs * powdim
 # endregion
 
+# region Optimal Airspeeds
+min_power_idx = np.argmin(powers)
+min_power_airspeed = airspeeds[min_power_idx]
+
+powers_derivative = np.gradient(powers, airspeeds)
+
+def tangent_condition(airspeed):
+    power = np.interp(airspeed, airspeeds, powers)
+    power_derivative = np.interp(airspeed, airspeeds, powers_derivative)
+    return power - airspeed * power_derivative
+
+tangent_airspeed_initial_guess = min_power_airspeed
+tangent_airspeed = fsolve(tangent_condition, tangent_airspeed_initial_guess)[0]
+tangent_power = np.interp(tangent_airspeed, airspeeds, powers)
+tangent_slope = tangent_power / tangent_airspeed
+tangent_line_x = np.linspace(0, max(airspeeds), 100)
+tangent_line_y = tangent_slope * tangent_line_x
+
+print(f"Airspeed for maximum endurance: {min_power_airspeed}")
+print(f"Airspeed for maximum range: {tangent_airspeed}")
+# endregion
+
 # region Plotting
 plt.plot(advance_ratios, powers)
 plt.xlabel('Advance Ratio $\mu$')
-plt.ylabel('Power $P_r$ [W]')
-plt.grid(which='both', linestyle=':', linewidth=0.5)
-plt.minorticks_on()
-plt.show()
-
-plt.plot(airspeeds, powers)
-plt.xlabel('Airspeed $V$ [m/s]')
 plt.ylabel('Power $P_r$ [W]')
 plt.grid(which='both', linestyle=':', linewidth=0.5)
 plt.minorticks_on()
@@ -125,5 +137,18 @@ plt.ylabel('Power Ratio')
 plt.grid(which='both', linestyle=':', linewidth=0.5)
 plt.minorticks_on()
 plt.legend(prop={'size': 8}, ncol=1)
+plt.show()
+
+plt.plot(airspeeds, powers, label='Power Required')
+plt.scatter([min_power_airspeed], [powers[min_power_idx]], color='red', label='Max Endurance')
+plt.scatter([tangent_airspeed], [tangent_power], color='green', label='Max Range')
+plt.plot(tangent_line_x, tangent_line_y, color='green', label='Tangent Line', linewidth=0.5)
+plt.xlabel('Airspeed $V$ [m/s]')
+plt.ylabel('Power $P_r$ [W]')
+plt.xlim(left=0)
+plt.ylim(bottom=0)
+plt.grid(which='both', linestyle=':', linewidth=0.5)
+plt.minorticks_on()
+plt.legend()
 plt.show()
 # endregion
