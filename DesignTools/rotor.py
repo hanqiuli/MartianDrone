@@ -25,17 +25,17 @@ class Rotor:
         self.r_disk = np.sqrt(self.A_disk / np.pi)
 
     def calculate_A_blade_total(self, T_required):
-        self.A_blade_total = T_required / (ENV['rho'] * self.ct_sigma * self.V_tip**2)
+        self.A_blade_total = (self.T_W_max * T_required) / (ENV['rho'] * self.ct_sigma * self.V_tip**2)
 
     def calculate_ct_and_solidity(self, T_required):
-        self.ct = T_required / (self.A_disk * ENV['rho'] * self.V_tip**2)
+        self.ct = (self.T_W_max * T_required) / (self.A_disk * ENV['rho'] * self.V_tip**2)
         self.sigma = self.ct / self.ct_sigma
 
     def calculate_omega(self):
         return self.V_tip / self.r_disk
 
     def calculate_power_per_rotor(self, T_required):
-        self.P_per_rotor = self.k_hover * T_required * np.sqrt((T_required)/(2*ENV['rho']*self.A_disk)) + \
+        self.P_per_rotor = self.k_hover * (self.T_W_max * T_required) * np.sqrt((self.T_W_max * T_required)/(2*ENV['rho']*self.A_disk)) + \
             ENV['rho'] * self.A_blade_total * self.V_tip**3 * self.cd_mean * (1/8)
         return self.P_per_rotor
 
@@ -62,11 +62,11 @@ class Rotor:
 
     def calculate_blade_mass(self):
         # calculates TOTAL blade mass
-        return 1.1 * self.A_blade_total
+        return 1.1 * self.A_blade_total * self.N
 
     def calculate_hub_mass(self, T_required):
         # calculate TOTAL hub mass
-        return 0.05 * T_required * self.N
+        return 0.05 * T_required / ENV['g'] * self.N
 
     def calculate_shaft_mass(self):
         # calculate TOTAL shaft mass
