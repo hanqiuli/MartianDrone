@@ -109,12 +109,17 @@ class Eps():
         plt.annotate('Design for EOL: '+str(EOL_design), (0,0), (5, 28), xycoords='axes fraction', textcoords='offset points', va='top')
         plt.annotate('Mean Charging Time BOL :'+str(round(mean_charging_time,2)), (0,0), (5, 50), xycoords='axes fraction', textcoords='offset points', va='top')
         plt.annotate('Mean Charging Time EOL :'+str(round(mean_charging_time_eol,2)), (0,0), (5, 40), xycoords='axes fraction', textcoords='offset points', va='top')
+        plt.annotate('Initial Efficiency: '+ str(self.cell_efficiency), (0,0), (5, 60), xycoords='axes fraction', textcoords='offset points', va='top')
+        plt.annotate('Degradation: ' + str(self.cell_degradation), (0,0), (5, 70), xycoords='axes fraction', textcoords='offset points', va='top')
         plt.show()
-        
+    
+    def power_density(self, array_area):
+        '''Function to calculate the power density of the array'''
+        return self.battery_capacity/array_area
 
 
 if __name__ == '__main__':
-    eps = Eps(1929, 24, 'Solar_Flux.txt', 0.35, 20, 2, 250, 0.02)
+    eps = Eps(1929, 24, 'Solar_Flux.txt', 0.3, 20, 2, 250, 0.02)
     print(eps.battery_mass())
     # eps.charging_time_iteration(plotting=True)
     charging_duration, array_area = eps.charging_time_iteration()
@@ -126,12 +131,13 @@ if __name__ == '__main__':
     plt.title('Array Area vs Charging Time')
     plt.legend(['Design for Initial Efficiency', ' Design for EOL Efficiency'])
     plt.annotate('Initial Efficiency: '+ str(eps.cell_efficiency), (0,0), (300, 30), xycoords='axes fraction', textcoords='offset points', va='top')
-    plt.annotate('Degradation: ' + str(eps.cell_degradation), (0,0), (400, 40), xycoords='axes fraction', textcoords='offset points', va='top')
-    plt.annotate('Battery Capacity: ' + str(eps.battery_capacity) + 'Wh', (0,0), (400, 50), xycoords='axes fraction', textcoords='offset points', va='top')
-    plt.annotate('Mission Duration: ' + str(eps.mission_duration) + ' years', (0,0), (400, 60), xycoords='axes fraction', textcoords='offset points', va='top')
+    plt.annotate('Degradation: ' + str(eps.cell_degradation), (0,0), (300, 40), xycoords='axes fraction', textcoords='offset points', va='top')
+    plt.annotate('Battery Capacity: ' + str(eps.battery_capacity) + 'Wh', (0,0), (300, 50), xycoords='axes fraction', textcoords='offset points', va='top')
+    plt.annotate('Mission Duration: ' + str(eps.mission_duration) + ' years', (0,0), (300, 60), xycoords='axes fraction', textcoords='offset points', va='top')
     plt.show()
 
     eps.charging_time_over_year(EOL_design=True)
+    print(eps.power_density(eps.area_to_charging_time(24, eps.battery_capacity, eps.solar_flux, EOL=True)))
 
 
 
