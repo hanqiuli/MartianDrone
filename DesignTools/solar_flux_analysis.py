@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
+def harmonic_mean(arr):
+    '''Function to calculate the harmonic mean of an array'''
+    return len(arr) / np.sum(1.0 / arr)
+
 def get_avg_solar_flux(file_name:str = 'Solar_Flux.txt', plotting:bool = False):
     '''Function to extract the average solar flux over the day from the solar flux data'''
     #Define file path
@@ -53,11 +57,13 @@ def get_avg_solar_flux(file_name:str = 'Solar_Flux.txt', plotting:bool = False):
 
     #Obtain mean flux over each day
     flux_avg = np.mean(flux, axis=1)
+    yearly_avg = harmonic_mean(flux_avg)
     if plotting:
         plt.plot(days, flux_avg)
         plt.xlabel('Martian Day')
         plt.ylabel('Average Solar Flux [W/m^2]')
-        plt.title('Average Solar Flux over the Day')
+        plt.title('Average Solar Flux per Day for a Martian Year')
+        plt.annotate(f'Yearly Average: {yearly_avg:.2f} W/m^2', (0.5, 0.5), xycoords='axes fraction')
         plt.grid()
         plt.show()
 
