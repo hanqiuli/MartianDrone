@@ -49,11 +49,11 @@ def data():
     data_rate_sens = data_sens()
     other = 0.25*(data_rate_scan+data_rate_sens)
     data = data_rate_scan+data_rate_sens+other
-    table = [['','bits/s', 'MB/s'],
-             ['scanning', data_rate_scan, data_rate_scan/8*10**(-6)],
-             ['sensor data',data_rate_sens, data_rate_sens/8*10**(-6)],
-             ['other', other, other/8*10**(-6)],
-             ['total', data, data/8*10**(-6)]]
+    table = [['','bits/s', 'Mbit/s'],
+             ['scanning', data_rate_scan, data_rate_scan*10**(-6)],
+             ['sensor data',data_rate_sens, data_rate_sens*10**(-6)],
+             ['other', other, other*10**(-6)],
+             ['total', data, data*10**(-6)]]
     #print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
     return data, table
 
