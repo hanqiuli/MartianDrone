@@ -38,4 +38,21 @@ def scanning(h,v,AFOV_h,AFOV_v):
 
 FOV_h,FOV_v,scan_lin,scan_time,res_h,res_v,h,v = scanning(h,v,AFOV_h,AFOV_v)
 
-print(scanning(h,v,AFOV_h,AFOV_v))
+#print(scanning(h,v,AFOV_h,AFOV_v))
+
+
+def LoS(h,d):
+    R_mars = 3396.2    #km
+    h = h/1000
+    d = d
+    p = 2 * np.pi * R_mars
+    theta = d/p * 2*np.pi
+    x_d = 0
+    y_d = R_mars+h
+    x_gs = -R_mars*np.sin(theta)
+    y_gs = R_mars*np.cos(theta)
+    dx = x_gs - x_d
+    dy = y_gs - y_d
+    return theta, x_d, y_d, x_gs, y_gs
+
+print(LoS(100,20))
