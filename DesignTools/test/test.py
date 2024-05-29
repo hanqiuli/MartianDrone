@@ -421,7 +421,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.1/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.1/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.1/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 216.331672143, "9.1/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 92.262892510, "9.1/wing", "Getweightsys/wing")
 
    #9.2
    h.E_spec = 3000
@@ -444,7 +444,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.2/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.2/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.2/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.2/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.2/wing", "Getweightsys/wing")
 
    #9.3
    h.E_spec = 3000
@@ -467,7 +467,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.3/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.3/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.3/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 277.988798482, "9.3/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 118.558925649, "9.3/wing", "Getweightsys/wing")
 
    #9.4
    h.E_spec = 3000
@@ -490,7 +490,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.4/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.4/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.4/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 248.413595023, "9.4/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 105.945452131, "9.4/wing", "Getweightsys/wing")
 
    #9.5
    h.E_spec = 3000
@@ -513,7 +513,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.5/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.5/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.5/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 254.968325267, "9.5/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 108.740966843, "9.5/wing", "Getweightsys/wing")
 
    #9.6
    h.E_spec = 3000
@@ -536,7 +536,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.6/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.6/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.6/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 62.280942524, "9.6/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 26.562083345, "9.6/wing", "Getweightsys/wing")
 
    #9.7
    h.E_spec = 3000
@@ -559,7 +559,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.7/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.7/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.7/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 24912.377009774, "9.7/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 10624.833337828, "9.7/wing", "Getweightsys/wing")
 
    #9.8
    h.E_spec = 3000
@@ -582,7 +582,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.8/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 6121.500000000, "9.8/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.8/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.8/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.8/wing", "Getweightsys/wing")
 
    #9.9
    h.E_spec = 3000
@@ -605,7 +605,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.9/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 183645.000000000, "9.9/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.9/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.9/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.9/wing", "Getweightsys/wing")
 
    #9.10
    h.E_spec = 3000
@@ -628,7 +628,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.10/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 306.075000000, "9.10/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.10/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.10/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.10/wing", "Getweightsys/wing")
 
    #gunky from down here
    #9.11
@@ -652,7 +652,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.11/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1714.020000000, "9.11/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.11/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.11/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.11/wing", "Getweightsys/wing")
 
    #9.12
    h.E_spec = 3000
@@ -675,7 +675,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.12/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 357.087500000, "9.12/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.12/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.12/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.12/wing", "Getweightsys/wing")
 
    #9.13
    h.E_spec = 3000
@@ -698,7 +698,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.13/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 51012.500000000, "9.13/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.13/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.13/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.13/wing", "Getweightsys/wing")
 
    #9.14
    h.E_spec = 3000
@@ -721,7 +721,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.14/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.14/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 124.437182948, "9.14/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.14/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.14/wing", "Getweightsys/wing")
 
    #9.15
    h.E_spec = 3000
@@ -744,7 +744,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.15/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.15/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 26.197301673, "9.15/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.15/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.15/wing", "Getweightsys/wing")
 
    #9.16
    h.E_spec = 3000
@@ -767,7 +767,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.16/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.16/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 74795.249713480, "9.16/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 5992.738765792, "9.16/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 2555.832010679, "9.16/wing", "Getweightsys/wing")
 
    #9.17
    h.E_spec = 3000
@@ -790,7 +790,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.17/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.17/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 48580.939750706, "9.17/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 4970.672702390, "9.17/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 2119.932956179, "9.17/wing", "Getweightsys/wing")
 
    #9.18
    h.E_spec = 3000
@@ -813,7 +813,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.18/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.18/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 2313.378083367, "9.18/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.18/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.18/wing", "Getweightsys/wing")
 
    #9.19
    h.E_spec = 3000
@@ -836,7 +836,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.19/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.19/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 5205.100687576, "9.19/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.19/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.19/wing", "Getweightsys/wing")
 
    #9.20
    h.E_spec = 3000
@@ -859,7 +859,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.20/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.20/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 48.580939751, "9.20/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.20/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.20/wing", "Getweightsys/wing")
 
    #9.21
    h.E_spec = 3000
@@ -882,7 +882,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.21/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.21/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 48.580939751, "9.21/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.21/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.21/wing", "Getweightsys/wing")
 
    #9.22
    h.E_spec = 0.5
@@ -905,7 +905,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.22/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.22/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 298649.239074872, "9.22/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.22/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.22/wing", "Getweightsys/wing")
 
    #9.23
    h.E_spec = 300
@@ -928,7 +928,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.23/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.23/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 497.748731791, "9.23/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 249.123770098, "9.23/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 106.248333378, "9.23/wing", "Getweightsys/wing")
 
    #9.24
    h.E_spec = 3000
@@ -951,7 +951,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.24/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.24/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 76.813210242, "9.24/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 356.132633352, "9.24/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 151.886344448, "9.24/wing", "Getweightsys/wing")
 
    #9.25
    h.E_spec = 3000
@@ -974,7 +974,7 @@ if __name__ == "__main__":
    ql(W_sys['const'], 84.662200000, "9.25/const", "Getweightsys/const")
    ql(W_sys['fuselage'], 1530.375000000, "9.25/fuselage", "Getweightsys/fuselage")
    ql(W_sys['battery'], 49.774873179, "9.25/battery", "Getweightsys/battery")
-   ql(W_sys['wing'], 218.486814975, "9.25/wing", "Getweightsys/wing")
+   ql(W_sys['wing'], 93.182035368, "9.25/wing", "Getweightsys/wing")
 
 ### Getweight
    #8.1
@@ -999,7 +999,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=0.5)
 
-   ql(W, 2092.913304828, "8.1", "Getweight")
+   ql(W, 1849.782174162, "8.1", "Getweight")
 
    #8.2
    h.E_spec = 3000
@@ -1023,7 +1023,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=4)
 
-   ql(W, 2096.416804828, "8.2", "Getweight")
+   ql(W, 1853.285674162, "8.2", "Getweight")
 
    #8.3
    h.E_spec = 3000
@@ -1047,7 +1047,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=24)
 
-   ql(W, 2116.436804828, "8.3", "Getweight")
+   ql(W, 1873.305674162, "8.3", "Getweight")
 
    #8.4
    h.E_spec = 3000
@@ -1071,7 +1071,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=0.5, W_bat_v=4)
 
-   ql(W, 2094.915304828, "8.4", "Getweight")
+   ql(W, 1851.784174162, "8.4", "Getweight")
 
    #8.5
    h.E_spec = 3000
@@ -1095,7 +1095,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=12, W_bat_v=4)
 
-   ql(W, 2106.426804828, "8.5", "Getweight")
+   ql(W, 1863.295674162, "8.5", "Getweight")
 
    #8.6
    h.E_spec = 3000
@@ -1119,7 +1119,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.002, W_prop=2, W_bat_v=4)
 
-   ql(W, 2305.579162828, "8.6", "Getweight")
+   ql(W, 1958.013253000, "8.6", "Getweight")
 
    #8.7
    h.E_spec = 3000
@@ -1143,7 +1143,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.007, W_prop=2, W_bat_v=4)
 
-   ql(W, 2044.281898295, "8.7", "Getweight")
+   ql(W, 1831.050754838, "8.7", "Getweight")
 
    #8.8
    h.E_spec = 3000
@@ -1167,7 +1167,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=4)
 
-   ql(W, 2102.699772275, "8.8", "Getweight")
+   ql(W, 1858.839976882, "8.8", "Getweight")
 
    #8.9
    h.E_spec = 3000
@@ -1191,7 +1191,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=4)
 
-   ql(W, 2722.619227049, "8.9", "Getweight")
+   ql(W, 2406.864511899, "8.9", "Getweight")
 
    #8.10
    h.E_spec = 3000
@@ -1215,7 +1215,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=4)
 
-   ql(W, 2046.542226054, "8.10", "Getweight")
+   ql(W, 1832.014757820, "8.10", "Getweight")
 
    #8.11
    h.E_spec = 3000
@@ -1239,7 +1239,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=4)
 
-   ql(W, 2171.228672988, "8.11", "Getweight")
+   ql(W, 1885.192048676, "8.11", "Getweight")
 
    #8.12
    h.E_spec = 3000
@@ -1263,7 +1263,7 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=4)
 
-   ql(W, 1999.161376219, "8.12", "Getweight")
+   ql(W, 1811.807387295, "8.12", "Getweight")
 
    #8.13
    h.E_spec = 3000
@@ -1287,11 +1287,95 @@ if __name__ == "__main__":
 
    W = h.Getweight(S=0.005, W_prop=2, W_bat_v=4)
 
-   ql(W, 2221.103251762, "8.13", "Getweight")
+   ql(W, 1906.462965018, "8.13", "Getweight")
 
 ### Iterate_step
 
 ### Iteration
+   #10.1
+   h.E_spec = 3e6
+   h.Range = 20000
+   h.Endurance = 3600
+   h.eta_total = 0.5
+   h.Cfc = 0.05
+   h.Sf = 0.5
+   h.t_f = 0.0005
+   h.rho_f = 2500
+   h.b = 4
+   h.LambdaLE = 0
+   h.V_MO = 200
+   h.WS_max = 1.5 * 0.5*ENV['rho']*100**2
+   h.update_b = False
+
+   h.configV['contingency'] = 0.000
+   h.configV['tiltwingWF']  = 0.1
+   h.configV['empennageWF'] = 0.1
+
+
+   W = 60
+   h.m = W / ENV['g']
+   h.config = "10-1-TestA"
+
+   h.iteration(1000, plotSave=True)
+
+   a = []
+   a.append(h.m)
+   a.append(h.P_req_v_cache)
+   a.append(h.P_req_h_cache)
+   a.append(h.V_r)
+   a.append(h.rotor.r_disk)
+   a.append(h.S_opt)
+
+   W = 250
+   h.m = W / ENV['g']
+   h.config = "10-1-TestB"
+
+   h.iteration(1000, plotSave=True)
+
+   b = []
+   b.append(h.m)
+   b.append(h.P_req_v_cache)
+   b.append(h.P_req_h_cache)
+   b.append(h.V_r)
+   b.append(h.rotor.r_disk)
+   b.append(h.S_opt)
+
+   a = np.array(a)
+   b = np.array(b)
+
+   ql(a,b, "10.1", "Iteration")
+
+
+   #10.2
+   h.E_spec = 3e6
+   h.Range = 20000
+   h.Endurance = 3600
+   h.eta_total = 0.5
+   h.Cfc = 0.05
+   h.Sf = 0.5
+   h.t_f = 0.0005
+   h.rho_f = 2500
+   h.b = 4
+   h.LambdaLE = 0
+   h.V_MO = 200
+   h.WS_max = 1.5 * 0.5*ENV['rho']*100**2
+   h.update_b = False
+
+   h.configV['contingency'] = 0.000
+   h.configV['tiltwingWF']  = 0.1
+   h.configV['empennageWF'] = 0.1
+
+   for m in range(20, 1000, 10):
+      try:
+         h.m = m
+         h.config = f"10-2-m={m}"
+
+         h.iteration(1000, plotSave=True)
+      except Exception as e:
+         print(e)
+         print(f"Maximum m is {m-10}")
+         break
+
 
 ### Test Summary
    test.testsummary(True)
