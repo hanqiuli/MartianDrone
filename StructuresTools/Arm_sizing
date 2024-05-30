@@ -1,0 +1,114 @@
+import sys
+sys.path.append("./SETools")
+
+import numpy as np
+import matplotlib.pyplot as plt
+from SE_data import SEData, data_path, backup_path  
+
+
+data = SEData(data_path, backup_path)
+mass = data.get_properties('mass')
+print(mass)
+material_props = {
+    'Al': {'E': 70e9, 'v': 0.33, 'rho': 2700},
+    'Steel': {'E': 200e9, 'v': 0.3, 'rho': 7850},
+    'Concrete': {'E': 30e9, 'v': 0.2, 'rho': 2400},
+    'Wood': {'E': 10e9, 'v': 0.3, 'rho': 800},
+    'Rubber': {'E': 0.01e9, 'v': 0.5, 'rho': 1200}
+}
+
+arm_geometry = {
+    rigid_rectangle: {
+        'width': 0.1,
+        'height': 0.1
+    },
+    rigid_circular: {
+        'radius': 0.1
+    },
+    hollow_circular: {
+        'outer_radius': 0.1,
+        'inner_radius': 0.05
+        
+    },
+    hollow_rectangle: {
+        'outer_length': 0.5,
+        'inner_length': 0.4,
+        'outer_height': 0.1,
+        'inner_height': 0.08
+    },
+    I_beam: {
+        'width': 0.5,
+        'height': 0.1,
+        'thickness_flange': 0.05,
+        'thickness_web': 0.05
+}
+}
+
+
+class Arm():
+    def __init__(self, material, geometry, length):
+        self.material = material
+        self.geometry = geometry
+        self.length = length
+
+        self.E = material_props[material]['E']
+        self.v = material_props[material]['v']
+        self.rho = material_props[material]['rho']
+        
+        self.geometry_params = arm_geometry[geometry]
+        self.width = self.geometry_params.get('width', None)
+        self.height = self.geometry_params.get('height', None)
+        self.radius = self.geometry_params.get('radius', None)
+        self.outer_radius = self.geometry_params.get('outer_radius', None)
+        self.inner_radius = self.geometry_params.get('inner_radius', None)
+        self.outer_length = self.geometry_params.get('outer_length', None)
+        self.inner_length = self.geometry_params.get('inner_length', None)
+        self.thickness_flange = self.geometry_params.get('thickness_flange', None)
+        self.thickness_web = self.geometry_params.get('thickness_web', None)
+
+        self.Iy = self.calculate_Iy()
+        self.Iz = self.calculate_Iz()
+        self.A = self.calculate_A()
+        self.m = self.calculate_m()
+
+    def calculate_Iy(self):
+        '''Calculates the moment of inertia about the y-axis (axial) for the given geometry'''
+        if self.geometry == 'rigid_rectangle':
+            return (1/12) * self.width * self.height**3
+        elif self.geometry == 'rigid_circular':
+            return (1/4) * np.pi * self.radius**4
+        elif self.geometry == 'hollow_circular':
+            return (1/4) * np.pi * (self.outer_radius**4 - self.inner_radius**4)
+        elif self.geometry == 'hollow_rectangle':
+            return (1/12) * (self.outer_length * self.height**3 - self.inner_length * self.height**3)
+        elif self.geometry == 'I_beam':
+            return (1/12) * (self.width * self.height**3 - (self.width - self.thickness_web) * (self.height - 2*self.thickness_flange)**3)
+    
+    def calculate_Iz(self):
+        '''Calculates the moment of inertia about the z-axis (transverse) for the given geometry'''
+        if self.geometry == 'rigid_rectangle':
+            return (1/12) * self.height * self.width**3
+        elif self.geometry == 'rigid_circular':
+            return (1/4) * np.pi * self.radius**4
+        elif self.geometry == 'hollow_circular':
+            return (1/4) * np.pi * (self.outer_radius**4 - self.inner_radius**4)
+        elif self.geometry == 'hollow_rectangle':
+            return (1/12) * (self.height * self.outer_length**3 - self.height * self.inner_length**3)
+        elif self.geometry == 'I_beam':
+            return (1/12) * (self.height * self.width**3 - (self.height - 2*self.thickness_flange) * (self.width - self.thickness_web)**3)
+
+    def calculate_A(self):
+        if self.geometry == 'rigid_rectangle':
+            return self.width * self.height
+        elif self.geometry == 'rigid_circular':
+            return np.pi * self.radius**2
+        elif self.geometry == 'hollow_circular':
+            return np.pi * (self.outer_radius**2 - self.inner_radius**2)
+        elif self.geometry == 'hollow_rectangle':
+            return self.outer_length * self.height - self.inner_length * self.height
+        elif self.geometry == 'I_beam':
+            return self.width * self.height - (self.width -self.thickness_web) * (self.height - 2*self.thickness_flange)
+        
+    def calculate_m(self):
+        return self.A * self.length * self.rho
+    

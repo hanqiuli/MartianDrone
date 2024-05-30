@@ -101,13 +101,12 @@ class SEData:
             return self.data.loc[self.data["Property"] == property.upper(), subsystem.upper()].values[0]
         else:
             raise ValueError(f"Property {property} does not exist.")
-
-    def get_all_properties(self, subsystem: str):
-        '''Function to get all the properties of a subsystem (headers)'''
-        if subsystem.upper() in self.data.columns:
-            return self.data[self.data[subsystem.upper()].notna()]["Property"].values
+    def get_properties(self, property: str):
+        '''Function to get all the values of a property'''
+        if property.upper() in self.data["Property"].values:
+            return self.data.loc[self.data["Property"] == property.upper()].dropna(axis=1)
         else:
-            raise ValueError(f"Subsystem {subsystem} does not exist.")
+            raise ValueError(f"Property {property} does not exist.")
     
     def get_all_data(self):
         '''Function to get all the data'''
@@ -117,9 +116,5 @@ class SEData:
 
 if __name__ == '__main__':
     data = SEData(data_path, backup_path)
-    subsystems = ["PWR", "STR", "PRO", "AVI", "COM", "PLD", "THE"]
-    properties = ["mass", "power", "volume", "cost" ]
-
-    for subsystem in subsystems:
-        data.add_subsystem(subsystem, {prop: np.nan for prop in properties})
+    data.add_subsystem_property("PWR", "Battery Capacity (WH)", 2400)
     
