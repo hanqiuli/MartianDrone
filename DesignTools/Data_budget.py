@@ -1,31 +1,32 @@
 import numpy as np
 from Scanning import scanning
-from Scanning import res_8k,res_4k,res_HD
+from Scanning import res_8k,res_4k,res_HD,MP
 from tabulate import tabulate
 
 h     = 100 #m
 AFOV_h = np.deg2rad(25) #rad (input deg)
 AFOV_v = np.deg2rad(12.5) #rad (input deg)
 v     = 20  #m/s
-t_exp = 1/12000
+t_exp = 1/2000
 def data_scan():
     h = 100  # m
-    AFOV_h = np.deg2rad(25)  # rad (input deg)
-    AFOV_v = np.deg2rad(12.5)  # rad (input deg)
+    rx_hor, rx_ver, ratio = MP()
+    AFOV_h = np.deg2rad(45)  # rad (input deg)
+    AFOV_v = AFOV_h / ratio  # rad (input deg)
     v = 20  # m/s
-    rx_hor, rx_ver, ratio = res_8k()
+    t_exp = 1 / 2000
 
-    FOV_h, FOV_v, scan_lin, scan_time, res, h, v = scanning(h, v, AFOV_h, AFOV_v,t_exp)
+    FOV_h,FOV_v,scan_lin,scan_time,res_h, res_v, blur_V, h, v, AFOV_h, AFOV_v, t_exp = scanning(h, v, AFOV_h, AFOV_v,t_exp)
 
     px = rx_hor*rx_ver #pixels per image
-    b_px = 24   #bit/pixel
+    b_px = 12   #bit/pixel
     data_pic = px*b_px #bits per image
-    N_pics_min = 2* np.ceil(1000/FOV_v*scan_lin) #total pictures min, that need to be taken (2 factor to cover everything twice)
-    fps = 60    #frames per second of the camera
+    N_pics_min = 1.6* np.ceil(1000/FOV_v*scan_lin) #total pictures min, that need to be taken (2 factor to cover everything twice)
+    fps = 5    #frames per second of the camera
     N_pics = fps*scan_time  #pictures taken based on fps and scan time
-    CF  = 20    #compression factor
+    CF  = 250    #compression factor
     Data_scan = data_pic*N_pics_min/CF #total data [bits]
-    trans_time = scan_time*1.5 #transmission time, 1.5 factor for longer time to transmit images
+    trans_time = scan_time*2 #transmission time, 1.5 factor for longer time to transmit images
     data_rate = Data_scan/trans_time
     return Data_scan,data_rate
 
@@ -54,7 +55,7 @@ def data():
              ['sensor data',data_rate_sens, data_rate_sens*10**(-6)],
              ['other', other, other*10**(-6)],
              ['total', data, data*10**(-6)]]
-    #print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
+    print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
     return data, table
 
 data()
