@@ -169,6 +169,12 @@ class Horizontal:
       out_list.append("V_stall:")
       out_vals.append(self.V(self.CL_max, self.S_opt))
 
+      out_list.append("R_min turn:")
+      out_vals.append(self.turn['Rmin'])
+
+      out_list.append("Omega_max turn:")
+      out_vals.append(self.turn['Omegamax'])
+
       largestlen = 0
       for i in range(len(out_list)):
          largestlen = max(len(out_list[i]), largestlen)
@@ -387,7 +393,7 @@ class Horizontal:
       # taken from paper. 2.25 is assumed ultimate load factor
       M_wing = (
         96.948 *
-        (self.m * ENV['g'] * Nz / 10**5)**0.65 *
+        (self.m * Nz / 10**5)**0.65 *
         (AR / (sweep_cos**0.57)) *
         (S / 100)**0.61 *
         (1 + taper / 2 / t_c_root)**0.36 *
@@ -397,6 +403,30 @@ class Horizontal:
       self.W_sys['wing'] = ENV['g'] * M_wing 
 
       return self.W_sys
+
+   def GetTurn(self):
+      '''
+      Ouputs:
+         Omegamax    Maximum turnrate                 [rad/s]
+         Romax       Radius of turn at max turnrate   [m]
+         Rmin        Minimum turning radius           [m]
+         OmegaRmin   Turnrate at min turn radius      [rad/s]
+      '''
+      self.turn = {}
+
+      Nzf = 1.5 # Flight load factor
+
+      # V_high = self.V_MO
+      # V_low = self.V(self.CL_max, self.S_opt)
+      # V_res = 0.001
+      # V = np.arange(V_low, (V_high+V_res), V_res)
+
+      self.turn['Vturn'] = Vopt = self.V(self.CL_max, self.S_opt)*np.sqrt(Nzf)
+      self.turn['Rmin'] = Rmin =  Vopt**2/(ENV['g']*np.sqrt(Nzf**2-1))
+      self.turn['Omegamax'] = Vopt/Rmin
+
+      return self.turn
+
 
    def iterate_step(self):
       ### Rotor step
@@ -451,6 +481,9 @@ class Horizontal:
             self.W_sys[key] += val
             continue
          self.W_sys[key] = val
+
+      for key, val in self.W_sys.items():
+         self.W_sys[key] = val/ENV['g']
       
       P_req_h_e = self.P_req_h(self.CL_e, self.V_e, self.CD_e, W_opt)
       P_req_h_r = self.P_req_h(self.CL_r, self.V_r, self.CD_r, W_opt)
@@ -464,9 +497,11 @@ class Horizontal:
          raise NotImplementedError(f"Horizontal power required, {P_req_h}, is larger than vertical power required, {P_req_v}.\nThis case has not been covered yet")
 
       V_opt_range = self.V(self.CLrange(S_opt), S_opt) # Calculate the optimal range velocity
+      self.GetTurn() # Calculate turning parameters
+
       return S_opt, W_opt, P_req_h, P_req_v, V_opt_range
 
-   def iteration(self, IterMax, eps=1e-6, plotSave=True, plotShow=False):
+   def iteration(self, IterMax, eps=1e-200, plotSave=True, plotShow=False):
       self.S_arr  = np.zeros(IterMax)
       self.W_arr  = np.zeros(IterMax)
       self.Ph_arr = np.zeros(IterMax)
@@ -482,15 +517,15 @@ class Horizontal:
          self.Pv_arr[i] = itVals[3]
          self.Vr_arr[i] = itVals[4]
 
-         if (abs(self.S_arr [i-1] - itVals[0])<eps and
-             abs(self.W_arr [i-1] - itVals[1])<eps and
-             abs(self.Ph_arr[i-1] - itVals[2])<eps and
-             abs(self.Pv_arr[i-1] - itVals[3])<eps and
-             abs(self.Vr_arr[i-1] - itVals[4])<eps):
+         if (abs(self.S_arr [i-1] - itVals[0])<self.S_arr [i-1]*eps and
+             abs(self.W_arr [i-1] - itVals[1])<self.W_arr [i-1]*eps and
+             abs(self.Ph_arr[i-1] - itVals[2])<self.Ph_arr[i-1]*eps and
+             abs(self.Pv_arr[i-1] - itVals[3])<self.Pv_arr[i-1]*eps and
+             abs(self.Vr_arr[i-1] - itVals[4])<self.Vr_arr[i-1]*eps):
 
             print(f"Iter stopped at {i}")
             break
-      
+         
       if plotSave or plotShow:
          plt.plot(range(i), np.transpose(np.array([self.S_arr[:i], self.W_arr[:i]/ENV['g'], self.Ph_arr[:i]/1000, self.Pv_arr[:i]/1000, self.Vr_arr[:i]])))
          plt.legend(["S [m]", "m [kg]", "P_h [kW]", "P_v [kW]", "V_range [m/s]"])
