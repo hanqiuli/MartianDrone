@@ -49,12 +49,12 @@ def calc_parasite_power_coeff(mu, m, A):
 # endregion
 
 # region Constants
-
 # region Aerodynamic Constants
 M_tip = 0.7
 CT_sigma = 0.115
 k_hover = 1.2
 cl_cd = 10
+M_at_max = 0.95  # Maximum advancing tip Mach number
 # endregion
 
 # region Vehicle Constants
@@ -101,48 +101,69 @@ tangent_slope = tangent_power / tangent_airspeed
 tangent_line_x = np.linspace(0, max(airspeeds), 100)
 tangent_line_y = tangent_slope * tangent_line_x
 
-print(f"Airspeed for maximum endurance: {min_power_airspeed}")
-print(f"Airspeed for maximum range: {tangent_airspeed}")
+# Calculate the advance ratio and airspeed for the maximum advancing tip Mach number
+advance_ratio_max = M_at_max / M_tip - 1
+airspeed_max = advance_ratio_max * V_tip
+
+print(f'Power at hover: {powers[0]:.2f} [W]')
+print(f'Airspeed for maximum endurance: {min_power_airspeed:.2f} [m/s]')
+print(f'Power at maximum endurance: {powers[min_power_idx]:.2f} [W]')
+print(f'Theoretical airspeed for maximum range: {tangent_airspeed:.2f} [m/s]')
+print(f'Theoretical power at maximum range: {tangent_power:.2f} [W]')
+print(f'Maximum advance ratio due to M_at_max: {advance_ratio_max:.3f} [-]')
+print(f'Maximum airspeed: {airspeed_max:.2f} [m/s]')
+print(f'Power at maximum: {np.interp(airspeed_max, airspeeds, powers):.2f} [W]')
 # endregion
 
 # region Plotting
-plt.plot(advance_ratios, powers)
-plt.xlabel('Advance Ratio $\mu$')
-plt.ylabel('Power $P_r$ [W]')
+# Plot advance ratios vs powers with vertical line at advance_ratio_max
+plt.plot(advance_ratios, powers, color='firebrick')
+plt.xlabel('Advance Ratio $\mu$', fontsize=14)
+plt.ylabel('Power $P_r$ [W]', fontsize=14)
+plt.xlim(left=0)
 plt.grid(which='both', linestyle=':', linewidth=0.5)
 plt.minorticks_on()
+plt.tick_params(axis='both', which='major', labelsize=14)
 plt.show()
 
+# Plot power coefficients
 labels = ['Induced Power Coefficient $C_{P_i}$',
           'Profile Power Coefficient $C_{P_o}$',
           'Parasite Power Coefficient $C_{P_p}$',
           'Total Power Coefficient $C_P$']
 for y, label in zip([CP_is, CP_os, CP_ps, CPs], labels):
-    plt.plot(advance_ratios, y, label=label)
-plt.xlabel('Advance Ratio $\mu$')
-plt.ylabel('Power Coefficient $C_P$')
+    plt.plot(advance_ratios, y, label=label, linewidth=1.5)
+plt.xlabel('Advance Ratio $\mu$', fontsize=14)
+plt.ylabel('Power Coefficient $C_P$', fontsize=14)
+plt.xlim(left=0)
+plt.ylim(bottom=0)
+plt.ylim(top=np.max(CPs) * 1.2)
 plt.grid(which='both', linestyle=':', linewidth=0.5)
 plt.minorticks_on()
-plt.legend(prop={'size': 8}, ncol=1)
+plt.legend(fontsize=12)
+plt.tick_params(axis='both', which='major', labelsize=14)
 plt.show()
 
-labels = ['Induced Power Ratio $C_{P_i}/C_P$',
-          'Profile Power Ratio $C_{P_o}/C_P$',
-          'Parasite Power Ratio $C_{P_p}/C_P$']
-ratios = [CP_is, CP_os, CP_ps]
-for y, label in zip(np.divide(ratios, CPs), labels):
-    plt.plot(advance_ratios, y, label=label)
-plt.xlabel('Advance Ratio $\mu$')
-plt.ylabel('Power Ratio')
-plt.grid(which='both', linestyle=':', linewidth=0.5)
-plt.minorticks_on()
-plt.legend(prop={'size': 8}, ncol=1)
-plt.show()
+# # Plot power ratios
+# labels = ['Induced Power Ratio $C_{P_i}/C_P$',
+#           'Profile Power Ratio $C_{P_o}/C_P$',
+#           'Parasite Power Ratio $C_{P_p}/C_P$']
+# ratios = [CP_is, CP_os, CP_ps]
+# for y, label in zip(np.divide(ratios, CPs), labels):
+#     plt.plot(advance_ratios, y, label=label)
+# plt.xlabel('Advance Ratio $\mu$')
+# plt.ylabel('Power Ratio')
+# plt.grid(which='both', linestyle=':', linewidth=0.5)
+# plt.minorticks_on()
+# plt.legend(prop={'size': 8}, ncol=1)
+# plt.show()
 
+# Plot airspeeds vs powers with vertical line at airspeed_max
 plt.plot(airspeeds, powers, label='Power Required')
-plt.scatter([min_power_airspeed], [powers[min_power_idx]], color='red', label='Max Endurance')
-plt.scatter([tangent_airspeed], [tangent_power], color='green', label='Max Range')
-plt.plot(tangent_line_x, tangent_line_y, color='green', label='Tangent Line', linewidth=0.5)
+plt.axvline(x=airspeed_max, color='black', linestyle='--', label=f'Max $M_{{at}}$ ({M_at_max})', linewidth=0.5)
+plt.scatter([min_power_airspeed], [powers[min_power_idx]], color='orange', label='Max Endurance', zorder=5)
+plt.scatter([tangent_airspeed], [tangent_power], color='green', label='Max Range', zorder=4)
+plt.plot(tangent_line_x, tangent_line_y, color='green', linewidth=0.5)
 plt.xlabel('Airspeed $V$ [m/s]')
 plt.ylabel('Power $P_r$ [W]')
 plt.xlim(left=0)
