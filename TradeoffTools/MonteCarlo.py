@@ -13,7 +13,7 @@ scores = pd.DataFrame({
 })
 
 # Define the total scores from excel
-total_excel_scores = [310, 240, 325, 335]
+total_excel_scores = np.array([310, 240, 325, 335]) / 4
 
 # Initial weights as percentages (they sum to 1)
 initial_weights = np.array([0.35, 0.25, 0.15, 0.15, 0.10])
@@ -31,7 +31,7 @@ def monte_carlo_simulation(weights, scores, criteria):
         # Normalize the perturbed weights to sum to 1
         perturbed_weights /= perturbed_weights.sum()
         # Calculate the weighted scores
-        weighted_scores = np.dot(scores[criteria], perturbed_weights) * 100
+        weighted_scores = (np.dot(scores[criteria], perturbed_weights) * 100) / 4
         # Store the results
         simulation_results[i, :] = weighted_scores
     # Convert results to a DataFrame
@@ -53,6 +53,9 @@ summary_stats_initial.to_csv('TradeoffTools/summary_stats_initial.csv')
 print("Summary statistics of the Monte Carlo simulation:")
 print(summary_stats_initial)
 
+# Set larger font size for plots
+plt.rcParams.update({'font.size': 14})
+
 # Plot the initial boxplot
 plt.figure(figsize=(12, 8))
 ax = simulation_df_initial.boxplot()
@@ -62,8 +65,7 @@ for i, score in enumerate(total_excel_scores):
 # Labeling
 plt.xlabel('Options')
 plt.ylabel('Total score')
-plt.title('Sensitivity analysis of different configurations')
-plt.ylim(100, 400)
+plt.ylim(0, 100)
 plt.legend()
 plt.savefig('plots/Sensitivity/initial_boxplot.png')
 plt.show()
@@ -93,7 +95,7 @@ simulation_df_initial.boxplot()
 plt.xlabel('Options')
 plt.ylabel('Total score')
 plt.title('Initial Configuration')
-plt.ylim(100, 400)
+plt.ylim(0, 100)
 for i, score in enumerate(total_excel_scores):
     plt.scatter(i + 1, score, color='red', marker='x', zorder=5)
 
@@ -103,8 +105,30 @@ for idx, (criterion, df) in enumerate(all_simulation_dfs.items()):
     plt.xlabel('Options')
     plt.ylabel('Total score')
     plt.title(f'After eliminating {criterion}')
-    plt.ylim(100, 400)
+    plt.ylim(0, 100)
 
 plt.tight_layout()
 plt.savefig('plots/Sensitivity/boxplots_all_configurations.png')
+plt.show()
+
+# Plot the boxplots excluding initial configuration, V_maxrange, and Mass
+plt.figure(figsize=(20, 6))
+
+# Exclude initial, V_maxrange, and Mass
+excluded_criteria = ['V_maxrange', 'Mass']
+
+remaining_criteria = [criterion for criterion in criteria if criterion not in excluded_criteria]
+
+for idx, criterion in enumerate(remaining_criteria):
+    simulation_df = all_simulation_dfs[criterion]
+    plt.subplot(1, 3, idx + 1)
+    simulation_df.boxplot()
+    plt.xlabel('Options')
+    plt.ylabel('Total score')
+    plt.title(f'After eliminating {criterion}')
+    plt.ylim(0, 100)
+
+
+plt.tight_layout()
+plt.savefig('plots/Sensitivity/boxplots_excluding_initial_vmax_mass.png')
 plt.show()

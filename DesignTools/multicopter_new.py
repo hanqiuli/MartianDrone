@@ -8,20 +8,28 @@ M_tip = 0.7     # Tip Mach number
 N_rotors = 6    # Number of ROTORS
 N_blades = 4    # Number of blades per rotor
 T_A_disk = 2.29*ENV['g']    # Disk loading [N/m^2]
+# T_A_disk = 2.24 * ENV['g']     # Disk loading [N/m^2] VALIDATION
 
 CT_sigma = 0.115    # Blade loading coefficient
 cl_cd = 10          # Section lift-to-drag ratio
 k_hover = 1.2       # Induced power ratio in hover
 
 t_flight = 20*60    # Hover time in seconds
+# e_bat = 218.5         # Battery specific energy in Wh/kg VALIDATION
 e_bat = 250         # Battery specific energy in Wh/kg
-total_eff = 0.7     # Total efficiency of the system
+total_eff = 0.7     # Total efficiency of the system VALIDATION
 
 # Define mass constants (in kg)
 # Note that these can be changed as needed
 
 m_payload = 11.87
-m_avionics = 4.05
+# m_payload = 2.02
+# m_avionics = 4.05
+m_avionics = 1.36
+# m_avionics = 1.36 + 1.2 #controls + avionics
+# m_solar = 2 * 0.62 # this is actually solar
+m_solar = 0
+# m_comms = 0
 m_comms = 2.9
 
 # Define variable masses
@@ -34,8 +42,8 @@ m_struct = 1
 if __name__ == "__main__":
 
     # Initialize rotor object
-    rotor_instance = Rotor(M_tip, N_rotors, N_blades, T_A_disk=T_A_disk, CT_sigma=CT_sigma, cl_cd=cl_cd, k_hover=k_hover, total_eff=total_eff, e_bat=e_bat, t_flight=t_flight)
-    m_drone = m_payload + m_avionics + m_comms + m_struct + m_bat + m_motor + m_rotor_group
+    rotor_instance = Rotor(M_tip, N_rotors, N_blades, T_A_disk=T_A_disk, CT_sigma=CT_sigma, cl_cd=cl_cd, k_hover=k_hover, total_eff=total_eff, e_bat=e_bat, t_flight=t_flight, validating=True)
+    m_drone = m_payload + m_avionics + m_solar + m_struct + m_bat + m_motor + m_rotor_group + m_comms
     m_history = [m_drone]
     power_history = []
     energy_history = []
@@ -53,7 +61,8 @@ if __name__ == "__main__":
         m_rotor_group = rotor_instance.calculate_rotor_group_mass(T_required)
         m_struct = rotor_instance.calculate_struct_mass(T_required)
 
-        m_drone = m_payload + m_avionics + m_comms + m_struct + m_bat + m_motor + m_rotor_group
+        # m_drone = m_payload + m_avionics + m_solar + m_struct + m_bat + m_motor + m_rotor_group + m_drone * 0.2
+        m_drone = m_payload + m_avionics + m_solar + m_struct + m_bat + m_motor + m_rotor_group + m_comms
         m_history.append(m_drone)
         power_history.append(rotor_instance.P_total)
         energy_history.append(rotor_instance.calculate_total_energy(Wh=True))
@@ -68,6 +77,8 @@ if __name__ == "__main__":
     print(f"    Motor mass: {m_motor:.2f} kg")
     print(f"    Battery mass: {m_bat:.2f} kg")
     print(f"    Structural mass: {m_struct:.2f} kg")
+    print(f"    Avionics mass: {m_avionics:.2f} kg")
+    print(f"    Solar mass: {m_solar:.2f} kg")
     print(f"Total motor power: {power_history[-1]:.2f} W")
     print(f"Total energy: {energy_history[-1]:.2f} Wh")
     print("--------------------------------------------")

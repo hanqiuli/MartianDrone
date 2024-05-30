@@ -7,7 +7,7 @@ h     = 100 #m
 AFOV_h = np.deg2rad(25) #rad (input deg)
 AFOV_v = np.deg2rad(12.5) #rad (input deg)
 v     = 20  #m/s
-
+t_exp = 1/12000
 def data_scan():
     h = 100  # m
     AFOV_h = np.deg2rad(25)  # rad (input deg)
@@ -15,7 +15,7 @@ def data_scan():
     v = 20  # m/s
     rx_hor, rx_ver, ratio = res_8k()
 
-    FOV_h, FOV_v, scan_lin, scan_time, res_h, res_v, h, v = scanning(h, v, AFOV_h, AFOV_v)
+    FOV_h, FOV_v, scan_lin, scan_time, res, h, v = scanning(h, v, AFOV_h, AFOV_v,t_exp)
 
     px = rx_hor*rx_ver #pixels per image
     b_px = 24   #bit/pixel
@@ -49,11 +49,11 @@ def data():
     data_rate_sens = data_sens()
     other = 0.25*(data_rate_scan+data_rate_sens)
     data = data_rate_scan+data_rate_sens+other
-    table = [['','bits/s', 'MB/s'],
-             ['scanning', data_rate_scan, data_rate_scan/8*10**(-6)],
-             ['sensor data',data_rate_sens, data_rate_sens/8*10**(-6)],
-             ['other', other, other/8*10**(-6)],
-             ['total', data, data/8*10**(-6)]]
+    table = [['','bits/s', 'Mbit/s'],
+             ['scanning', data_rate_scan, data_rate_scan*10**(-6)],
+             ['sensor data',data_rate_sens, data_rate_sens*10**(-6)],
+             ['other', other, other*10**(-6)],
+             ['total', data, data*10**(-6)]]
     #print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
     return data, table
 
