@@ -41,7 +41,7 @@ C_N = Pt*Gt*(lambd/(4*np.pi*R*1000))**2*(Gr/Ts)*1/Kb
 #print(range)
 
 #P_lst = np.arange(1*10**(-5), 0.1, 1*10**(-5))
-P_lst = np.linspace(1e-5, 0.5, 10000)
+P_lst = np.linspace(1e-5, 0.5, 100000)
 dBm_lst = 10*np.log10(1000*P_lst)
 C_N_P = P_lst*Gt*(lambd/(4*np.pi*R*1000))**2*1/(10**(La/10))*(Gr/Ts)*1/Kb
 plt.plot(P_lst, C_N_P)
@@ -81,7 +81,7 @@ for i in range(len(wl_lst)):
 for i in range(len(wl_lst)): ax.plot(dBm_lst, R_array[i,:], label=f"{f_band[i]} = {f_lst[i]/10**6} MHz")
 #plt.plot(dBm_lst,R*np.ones(len(dBm_lst)), label='Range = 20km')
 #plt.title('Range as function of Power. C/N0='+str(round(CN_min,-5)))
-plt.ylim(0,250)
+plt.ylim(0,100)
 plt.xlim(right=25)
 #plt.yticks(np.arange(0,101,10))
 plt.xlabel('Transmitter Power [dBm]')
@@ -100,5 +100,5 @@ ax2.set_xticks(dbm_ticks)
 ax2.set_xticklabels([f'{w:.3g}' for w in watt_ticks])
 ax2.set_xlim(ax.get_xlim())
 
-plt.savefig('Figures/P_R_2')
+#plt.savefig('Figures/P_R_2')
 plt.show()

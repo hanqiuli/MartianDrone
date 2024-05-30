@@ -7,7 +7,7 @@ h     = 100 #m
 AFOV_h = np.deg2rad(25) #rad (input deg)
 AFOV_v = np.deg2rad(12.5) #rad (input deg)
 v     = 20  #m/s
-
+t_exp = 1/12000
 def data_scan():
     h = 100  # m
     AFOV_h = np.deg2rad(25)  # rad (input deg)
@@ -15,7 +15,7 @@ def data_scan():
     v = 20  # m/s
     rx_hor, rx_ver, ratio = res_8k()
 
-    FOV_h, FOV_v, scan_lin, scan_time, res_h, res_v, h, v = scanning(h, v, AFOV_h, AFOV_v)
+    FOV_h, FOV_v, scan_lin, scan_time, res, h, v = scanning(h, v, AFOV_h, AFOV_v,t_exp)
 
     px = rx_hor*rx_ver #pixels per image
     b_px = 24   #bit/pixel
