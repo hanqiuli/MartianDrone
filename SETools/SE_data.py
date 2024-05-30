@@ -6,10 +6,12 @@ from datetime import datetime
 
 data_path = os.path.join('SETools/data', 'configuration_data.csv')
 backup_path = os.path.join('SETools/data', 'backup')
+test_data_path = os.path.join('SETools/data', 'test_configuration_data.csv')
+test_backup_path = os.path.join('SETools/data', 'test_backup')
 
 class SEData:
     '''Class to store and retrieve the design data for all the subsystems'''
-    def __init__(self, data_path: str = data_path, backup_path: str = backup_path):
+    def __init__(self, data_path: str, backup_path: str):
         self.data_path = data_path
         self.backup_path = backup_path
         if os.path.exists(self.data_path):
@@ -114,6 +116,10 @@ class SEData:
 
 
 if __name__ == '__main__':
-    data = SEData()
-    data.add_subsystem("alt", {"mass": 100, "power": 200})
-    print(data.get_subsystem("alt"))
+    data = SEData(data_path, backup_path)
+    subsystems = ["PWR", "STR", "PRO", "AVI", "COM", "PLD", "THE"]
+    properties = ["mass", "power", "volume", "cost" ]
+
+    for subsystem in subsystems:
+        data.add_subsystem(subsystem, {prop: np.nan for prop in properties})
+    
