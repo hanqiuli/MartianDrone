@@ -7,7 +7,7 @@ from datetime import datetime
 data_path = os.path.join('SETools/data', 'configuration_data.csv')
 backup_path = os.path.join('SETools/data', 'backup')
 
-class SE_data:
+class SEData:
     '''Class to store and retrieve the design data for all the subsystems'''
     def __init__(self, data_path: str = data_path, backup_path: str = backup_path):
         self.data_path = data_path
@@ -30,8 +30,8 @@ class SE_data:
         '''Function to clear values in the configuration file completely or for a single subsystem'''
         self.create_backup()
         if subsystem:
-            if subsystem in self.data.columns:
-                self.data[subsystem] = np.nan
+            if subsystem.upper() in self.data.columns:
+                self.data[subsystem.upper()] = np.nan
             else:
                 raise ValueError(f"Subsystem {subsystem} does not exist.")
         else:
@@ -42,45 +42,68 @@ class SE_data:
 
     def add_subsystem(self, subsystem: str, data: dict):
         '''Function to add a new subsystem to the data'''
-        if subsystem not in self.data.columns:
-            self.data[subsystem] = np.nan
+        if subsystem.upper() not in self.data.columns:
+            self.data[subsystem.upper()] = np.nan
         for prop, value in data.items():
-            if prop not in self.data["Property"].values:
-                self.data = pd.concat([self.data, pd.DataFrame({"Property": [prop]})], ignore_index=True)
-            self.data.loc[self.data["Property"] == prop, subsystem] = value
+            if prop.upper() not in self.data["Property"].values:
+                self.data = pd.concat([self.data, pd.DataFrame({"Property": [prop.upper()]})], ignore_index=True)
+            self.data.loc[self.data["Property"] == prop.upper(), subsystem.upper()] = value
         self.data.to_csv(self.data_path, index=False)
 
     def add_subsystem_property(self, subsystem: str, property: str, value):
         '''Function to add a new property to a subsystem'''
-        if property not in self.data["Property"].values:
-            self.data = pd.concat([self.data, pd.DataFrame({"Property": [property]})], ignore_index=True)
-        if subsystem not in self.data.columns:
-            self.data[subsystem] = np.nan
-        self.data.loc[self.data["Property"] == property, subsystem] = value
+        if property.upper() not in self.data["Property"].values:
+            self.data = pd.concat([self.data, pd.DataFrame({"Property": [property.upper()]})], ignore_index=True)
+        if subsystem.upper() not in self.data.columns:
+            self.data[subsystem.upper()] = np.nan
+        self.data.loc[self.data["Property"] == property.upper(), subsystem.upper()] = value
         self.data.to_csv(self.data_path, index=False)
+
+    def remove_subsystem(self, subsystem: str):
+        '''Function to remove a subsystem from the data'''
+        if subsystem.upper() in self.data.columns:
+            self.data.drop(subsystem.upper(), axis=1, inplace=True)
+            self.data.to_csv(self.data_path, index=False)
+        else:
+            raise ValueError(f"Subsystem {subsystem} does not exist.")
+        
+    def remove_subsystem_property(self, subsystem: str, property: str):
+        '''Function to remove a property from a subsystem'''
+        if property.upper() in self.data["Property"].values:
+            self.data.loc[self.data["Property"] == property.upper(), subsystem.upper()] = np.nan
+            self.data.to_csv(self.data_path, index=False)
+        else:
+            raise ValueError(f"Property {property} does not exist.")
+    
+    def update_subsystem_property(self, subsystem: str, property: str, value):
+        '''Function to update the value of a property in a subsystem'''
+        if subsystem.upper() in self.data.columns:
+            if property.upper() in self.data["Property"].values:
+                self.data.loc[self.data["Property"] == property.upper(), subsystem.upper()] = value
+                self.data.to_csv(self.data_path, index=False)
+            else:
+                raise ValueError(f"Property {property} does not exist.")
+        else:
+            raise ValueError(f"Subsystem {subsystem} does not exist.")
 
     def get_subsystem(self, subsystem: str):
         '''Function to get the data of a subsystem'''
-        if subsystem in self.data.columns:
-            return self.data[["Property", subsystem]].dropna()
+        if subsystem.upper() in self.data.columns:
+            return self.data[["Property", subsystem.upper()]].dropna()
         else:
             raise ValueError(f"Subsystem {subsystem} does not exist.")
 
     def get_subsystem_property(self, subsystem: str, property: str):
         '''Function to get a property of a subsystem'''
-        if property in self.data["Property"].values:
-            return self.data.loc[self.data["Property"] == property, subsystem].values[0]
+        if property.upper() in self.data["Property"].values:
+            return self.data.loc[self.data["Property"] == property.upper(), subsystem.upper()].values[0]
         else:
             raise ValueError(f"Property {property} does not exist.")
 
-    def get_all_subsystems(self):
-        '''Function to get all the subsystems'''
-        return self.data.columns[1:]
-
     def get_all_properties(self, subsystem: str):
-        '''Function to get all the properties of a subsystem'''
-        if subsystem in self.data.columns:
-            return self.data[self.data[subsystem].notna()]["Property"].values
+        '''Function to get all the properties of a subsystem (headers)'''
+        if subsystem.upper() in self.data.columns:
+            return self.data[self.data[subsystem.upper()].notna()]["Property"].values
         else:
             raise ValueError(f"Subsystem {subsystem} does not exist.")
     
@@ -88,18 +111,9 @@ class SE_data:
         '''Function to get all the data'''
         return self.data
     
-# Test the class
-data = SE_data()
-subsystems = ['EPS', 'ADCS', 'CDH', 'COM', 'GNC', 'PROP', 'STR', 'TCS']
-properties = ['mass', 'power', 'volume', 'cost']
-for subsystem in subsystems:
-    data.add_subsystem(subsystem, {property: np.random.randint(1, 10) for property in properties})
 
-print(data.get_all_data())
 
-# Clear values for a single subsystem and for all subsystems
-data.clear_values('EPS')
-print(data.get_all_data())
-
-data.clear_values()
-print(data.get_all_data())
+if __name__ == '__main__':
+    data = SEData()
+    data.add_subsystem("alt", {"mass": 100, "power": 200})
+    print(data.get_subsystem("alt"))
