@@ -135,6 +135,9 @@ for i in range(profile_time_1_day_mission['deposit_rock']):
 for i in range(profile_time_1_day_mission['afternoon_rest']):
     power_series_1_day.append(power_usage_baseline)
 
+print(power_series_1_day)
+
+
 #Plot power profile 1 day mission
 plt.plot(time_series_1_day, power_series_1_day)
 plt.title('Power load profile 1 day return mission')
@@ -200,7 +203,7 @@ print('max_power_2_day [W]', np.max(power_series_2_day))
 #Calculate mission energy
 mission_energy_1_day = np.trapz(power_series_1_day, dx=1)
 mission_energy_2_day = np.trapz(power_series_2_day, dx=1)
-average_power = np.max((mission_energy_1_day, mission_energy_2_day))/(time_mars_day)
+average_power = np.max((mission_energy_1_day, mission_energy_2_day/2))/(time_mars_day)
 print('mission_energy_1_day [J]', mission_energy_1_day)
 print('mission_energy_1_day [Wh]', mission_energy_1_day/3600)
 print('mission_energy_2_day [J]', mission_energy_2_day)
@@ -215,3 +218,15 @@ values and thus the EPS will be sized for the 1 day mission profile.
 The solar arrays can now be sized to provide mission energy over 1 martian 
 day such that a mission can be performed every day.
 '''
+
+#Define functions for outputs that need to be used in other files
+def get_average_power_mission():
+    average_power = np.max((mission_energy_1_day, mission_energy_2_day/2))/(time_mars_day)
+    return average_power
+
+def get_power_usage_profile():
+    if mission_energy_1_day>mission_energy_2_day/2:
+        power_usage_profile = power_series_1_day
+    else: 
+        power_usage_profile = power_series_2_day
+    return power_usage_profile
