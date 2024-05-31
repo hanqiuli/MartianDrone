@@ -5,15 +5,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from pathlib import Path
+
+
 
 def harmonic_mean(arr):
     '''Function to calculate the harmonic mean of an array'''
     return len(arr) / np.sum(1.0 / arr)
 
-def get_avg_solar_flux(file_name:str = 'Solar_Flux.txt', plotting:bool = False):
+def get_avg_solar_flux(file_name, plotting:bool = False):
+    PROJECT_DIR = Path(__file__).parent
     '''Function to extract the average solar flux over the day from the solar flux data'''
     #Define file path
-    file_path = os.path.join('DesignTools/data', 'Solar_Flux.txt')
+    file_path = str(PROJECT_DIR) + '\\data\\'+ file_name
     #Read file
     with open(file_path, 'r', encoding="utf-8") as file:
         lines = file.readlines()
