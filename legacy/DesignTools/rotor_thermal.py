@@ -41,7 +41,7 @@ power_motor = power_rotor / eff_motor       # [W] Motor power
 
 # Cruise parameters
 power_factor_cruise = 3/4
-t_cruise = 1200  # in seconds
+t_cruise = 0  # in seconds
 # endregion
 
 # region Fin calculations
@@ -184,6 +184,16 @@ plt.xlabel('Time [min]', fontsize=14)
 plt.ylabel('Temperature [°C]', fontsize=14)
 plt.tick_params(axis='both', which='major', labelsize=14)
 plt.legend(fontsize=14)
+plt.grid()
+plt.show()
+
+plt.plot(time/60, temp_no_cool - 273.15)
+plt.plot([0, 5], [temp_max-273.15, temp_max-273.15], 'k--', label='Maximum temperature')
+plt.xlim(left=0, right=5)
+plt.ylim([temp_init-273.15 - 10, temp_max-273.15 + 20])
+plt.xlabel('Time [min]', fontsize=14)
+plt.ylabel('Temperature [°C]', fontsize=14)
+plt.tick_params(axis='both', which='major', labelsize=14)
 plt.grid()
 plt.show()
 # endregion
