@@ -1,11 +1,6 @@
 import numpy as np
 import pandas as pd
-import os
 import matplotlib.pyplot as plt
-
-y_file = 'y.txt'
-R_file = 'R.txt'
-T_file = 'T.txt'
 
 def get_data(file_name):
     '''Function to extract the average solar flux over the day from the solar flux data'''
