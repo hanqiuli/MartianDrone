@@ -33,6 +33,7 @@ class Blade:
             viscosity_air: The dynamic viscosity of the air. [kg/(m s)]
             mach_tip: The tip Mach number. [-]
         """
+        speed_sound = np.sqrt(gamma_air * gas_constant_air * temp_air)
         self.speed_tip = mach_tip * speed_sound
         self.speed = self.speed_tip * self.radial_nondim
         self.reynolds = density_air * self.speed * self.chord / viscosity_air
