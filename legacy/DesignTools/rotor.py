@@ -83,7 +83,7 @@ class Rotor:
                 self.calculate_shaft_mass() + self.calculate_support_mass()
 
     def calc_masses(self, T_required_tot, t_flight, E_spec):
-        ### Calculate power and energy
+        '''Calculate propulsion and battery masses for rotor only flight'''
         T_req_pr = T_required_tot / self.N
 
         self.required_params_per_rotor(T_req_pr)

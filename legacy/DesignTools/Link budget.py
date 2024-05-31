@@ -14,7 +14,7 @@ lambd = 3*10**8/(f*10**9)
 B = DR/2/1  #bandwith [Hz]
 R = 20     #km
 Ll = 0.8   #Link loss
-Gt = 1     #transmission gain
+Gt = 10     #transmission gain
 EIRP = Pt * Ll * Gt
 La = 10**(-4)*R #dB
 Ls = 147.55 - 2*dB(R*1000) - 2*dB(f*10**(9)) #space loss [dB]
@@ -25,7 +25,7 @@ D_rec = 0.5
 A_rec = np.pi*(D_rec/2)**2
 n_rec = 0.7
 Gr = np.pi**2*D_rec**2*n_rec / lambd
-Gr = 1
+Gr = 10
 print(10**(La/10), Ts)
 Wf = EIRP * 4*np.pi*R**2
 C = Wf * A_rec * n_rec
@@ -41,7 +41,7 @@ C_N = Pt*Gt*(lambd/(4*np.pi*R*1000))**2*(Gr/Ts)*1/Kb
 #print(range)
 
 #P_lst = np.arange(1*10**(-5), 0.1, 1*10**(-5))
-P_lst = np.linspace(1e-5, 0.5, 100000)
+P_lst = np.linspace(1e-5, 10, 100000)
 dBm_lst = 10*np.log10(1000*P_lst)
 C_N_P = P_lst*Gt*(lambd/(4*np.pi*R*1000))**2*1/(10**(La/10))*(Gr/Ts)*1/Kb
 plt.plot(P_lst, C_N_P)
@@ -82,7 +82,7 @@ for i in range(len(wl_lst)): ax.plot(dBm_lst, R_array[i,:], label=f"{f_band[i]} 
 #plt.plot(dBm_lst,R*np.ones(len(dBm_lst)), label='Range = 20km')
 #plt.title('Range as function of Power. C/N0='+str(round(CN_min,-5)))
 plt.ylim(0,100)
-plt.xlim(right=25)
+#plt.xlim(right=25)
 #plt.yticks(np.arange(0,101,10))
 plt.xlabel('Transmitter Power [dBm]')
 plt.ylabel('range [km]')
