@@ -22,16 +22,16 @@ if __name__ == '__main__':
     blade.calculate_power_coefficient()
     blade.calculate_thrust_and_power(density_air)
     # region Prints
-    print(f'Mean chord of the blade: {blade.chord_mean} m')
-    print(f'Area of the blade: {blade.area_blade} m^2')
-    print(f'Aspect ratio of the blade: {blade.aspect_ratio}')
-    print(f'Area of all blades: {blade.area_blades} m^2')
-    print(f'Area of the rotor disk: {blade.area_rotor} m^2')
-    print(f'Solidity of the rotor disk: {blade.solidity_rotor}')
-    print(f'Thrust coefficient of the rotor: {blade.thrust_coefficient_rotor}')
-    print(f'Thrust of the rotor: {blade.thrust_rotor} N')
-    print(f'Induced power coefficient of the rotor: {blade.power_induced_coefficient_rotor}')
-    print(f'Induced power of the rotor: {blade.power_induced_rotor} W')
+    print(f'{blade.chord_mean                       = :>10.4g} m')
+    print(f'{blade.aspect_ratio                     = :>10.4g}')
+    print(f'{blade.area_blade                       = :>10.4g} m^2')
+    print(f'{blade.area_blades                      = :>10.4g} m^2')
+    print(f'{blade.area_rotor                       = :>10.4g} m^2')
+    print(f'{blade.solidity_rotor                   = :>10.4g}')
+    print(f'{blade.thrust_coefficient_rotor         = :>10.4g}')
+    print(f'{blade.thrust_rotor                     = :>10.4g} N')
+    print(f'{blade.power_induced_coefficient_rotor  = :>10.4g}')
+    print(f'{blade.power_induced_rotor              = :>10.4g} W')
     # endregion
     if 0:   # Planform geometry
         plt.plot(blade.radial_nondim, blade.leading_edge, label='Leading Edge')
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         plt.grid(which='both')
         plt.legend()
         plt.show()
-    if 1:   # Inflow
+    if 0:   # Inflow
         plt.plot(blade.radial_nondim, blade.inflow)
         plt.xlabel('$r/R$ [-]')
         plt.ylabel('$\\lambda$ [-]')
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
-    if 1:   # Thrust coefficient and slope
+    if 0:   # Thrust coefficient and slope
         plt.plot(blade.radial_nondim, blade.thrust_slope, label='$dC_T/d(r/R)$')
         plt.plot(blade.radial_nondim, blade.thrust_coefficient, label='$C_T$')
         plt.xlabel('$r/R$ [-]')
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         plt.grid(which='both')
         plt.legend()
         plt.show()
-    if 1:   # Power coefficient
+    if 0:   # Power coefficient
         plt.plot(blade.radial_nondim, blade.power_induced_coefficient)
         plt.xlabel('$r/R$ [-]')
         plt.ylabel('$C_{P_i}$ [-]')
