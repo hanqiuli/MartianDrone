@@ -6,6 +6,7 @@ Provides a class that calculates the performance of a rotor blade in hover.
     - The thrust of the rotor is calculated based on the thrust coefficient and the speed of the rotor tip.
 """
 import numpy as np
+from scipy import integrate
 
 class Blade:
     def __init__(self, radius_rotor: float, num_blades: int, radial_nondim_stations: list[float], chord_nondim_stations: list[float]):
@@ -29,7 +30,7 @@ class Blade:
         self.leading_edge = 0.25 * self.chord_nondim
         self.trailing_edge = -0.75 * self.chord_nondim
 
-        self.mean_chord = np.trapz(self.chord, self.radial_nondim)
+        self.chord_mean = np.trapz(self.chord, self.radial_nondim)
         self.area_blade = np.trapz(self.chord, self.radial)
         self.area_blades = self.area_blade * self.num_blades
         self.area_rotor = np.pi * self.radius_rotor**2
@@ -65,23 +66,22 @@ class Blade:
         """Calculates the thrust slope of the rotor blade.
         """
         self.thrust_slope = self.solidity * self.lift_slope / 2 * (self.pitch * self.radial_nondim**2 - self.inflow * self.radial_nondim)
-        self.thrust_coefficient = np.zeros_like(self.radial_nondim)
-        for i in range(len(self.radial_nondim)):
-            self.thrust_coefficient[i] = np.trapz(self.thrust_slope[:i], self.radial_nondim[:i])
+        self.thrust_coefficient = integrate.cumtrapz(self.thrust_slope, self.radial_nondim, initial=0)
         self.thrust_coefficient_blade = np.trapz(self.thrust_slope, self.radial_nondim)
         self.thrust_coefficient_rotor = self.thrust_coefficient_blade * self.num_blades
 
     def calculate_power_coefficient(self):
         """Calculates the power coefficient of the rotor blade.
         """
+        self.power_induced_coefficient = integrate.cumtrapz(self.inflow * self.thrust_slope, self.radial_nondim, initial=0)
         self.power_induced_coefficient_blade = np.trapz(self.inflow * self.thrust_slope, self.radial_nondim)
         self.power_induced_coefficient_rotor = self.power_induced_coefficient_blade * self.num_blades
 
     def calculate_thrust_and_power(self, density_air: float):
-        """Calculates the thrust and power of the rotor blade.
+        """Calculates the thrust and power of the rotor disk.
         """
-        self.thrust = self.thrust_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**2
-        self.power_induced = self.power_induced_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**3
+        self.thrust_rotor = self.thrust_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**2
+        self.power_induced_rotor = self.power_induced_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**3
 
     def calculate_reynolds(self, gamma_air: float, gas_constant_air: float, temp_air: float, density_air: float, viscosity_air: float, mach_tip: float):
         """Calculates the Reynolds number distribution over the rotor blade.
