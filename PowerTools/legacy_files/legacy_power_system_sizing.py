@@ -5,6 +5,11 @@ import numpy as np
 from solar_flux_analysis import get_avg_solar_flux
 import matplotlib.pyplot as plt
 
+#Battery data sheet
+#https://www.enersys.com/495fdb/globalassets/documents/product-documentation/absl/emea/emea_apac-en-ds-absl-cm1040-36s4p-0722-web.pdf
+
+
+
 # Solar panel parameters
 # Cell Type: Inverted Metamorphic Quadruple Junction (IMM4J)
 #Source: https://www.researchgate.net/publication/365501968_Ultra-lightweight_and_flexible_inverted_metamorphic_four_junction_solar_cells_for_space_applications
