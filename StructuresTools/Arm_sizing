@@ -4,13 +4,13 @@ sys.path.append("./SETools")
 import numpy as np
 import matplotlib.pyplot as plt
 from SE_data import SEData, data_path, backup_path  
-
+from scipy.spatial import ConvexHull
 
 data = SEData(data_path, backup_path)
 mass = data.get_properties('mass')
-print(mass)
+
 material_props = {
-    'Al': {'E': 70e9, 'v': 0.33, 'rho': 2700},
+    'Al': {'E': 70e9, 'v': 0.33, 'rho': 2700, 'G': 26e9},
     'Steel': {'E': 200e9, 'v': 0.3, 'rho': 7850},
     'Concrete': {'E': 30e9, 'v': 0.2, 'rho': 2400},
     'Wood': {'E': 10e9, 'v': 0.3, 'rho': 800},
@@ -18,35 +18,24 @@ material_props = {
 }
 
 arm_geometry = {
-    rigid_rectangle: {
-        'width': 0.1,
-        'height': 0.1
-    },
-    rigid_circular: {
-        'radius': 0.1
-    },
-    hollow_circular: {
-        'outer_radius': 0.1,
-        'inner_radius': 0.05
-        
-    },
-    hollow_rectangle: {
-        'outer_length': 0.5,
-        'inner_length': 0.4,
-        'outer_height': 0.1,
-        'inner_height': 0.08
-    },
-    I_beam: {
-        'width': 0.5,
-        'height': 0.1,
-        'thickness_flange': 0.05,
-        'thickness_web': 0.05
+    "rigid_rectangle": ['width', 'height'],
+    "rigid_circular": ['radius'],
+    "hollow_circular": ['outer_radius', 'inner_radius'],
+    "hollow_rectangle": ['outer_width', 'inner_width', 'outer_height', 'inner_height'],
+    "I_beam": ['width', 'height', 'thickness_flange', 'thickness_web']
 }
-}
+
+def convex_hull(xdata, ydata, label: str = None, color: str = 'r'):
+    points = np.column_stack((xdata, ydata))
+    hull = ConvexHull(points)
+    for simplex in hull.simplices:
+        plt.plot(points[simplex, 0], points[simplex, 1], color, lw=2,)
+    plt.plot(points[hull.vertices,0], points[hull.vertices,1], color , lw=2,label=label)
+    
 
 
 class Arm():
-    def __init__(self, material, geometry, length):
+    def __init__(self, material, geometry, length, **kwargs):
         self.material = material
         self.geometry = geometry
         self.length = length
@@ -54,25 +43,30 @@ class Arm():
         self.E = material_props[material]['E']
         self.v = material_props[material]['v']
         self.rho = material_props[material]['rho']
+        self.G = material_props[material]['G']
         
-        self.geometry_params = arm_geometry[geometry]
-        self.width = self.geometry_params.get('width', None)
-        self.height = self.geometry_params.get('height', None)
-        self.radius = self.geometry_params.get('radius', None)
-        self.outer_radius = self.geometry_params.get('outer_radius', None)
-        self.inner_radius = self.geometry_params.get('inner_radius', None)
-        self.outer_length = self.geometry_params.get('outer_length', None)
-        self.inner_length = self.geometry_params.get('inner_length', None)
-        self.thickness_flange = self.geometry_params.get('thickness_flange', None)
-        self.thickness_web = self.geometry_params.get('thickness_web', None)
+        self.geometry_params = kwargs
+        self.width = kwargs.get('width', None)
+        self.height = kwargs.get('height', None)
+        self.radius = kwargs.get('radius', None)
+        self.outer_radius = kwargs.get('outer_radius', None)
+        self.inner_radius = kwargs.get('inner_radius', None)
+        self.outer_width = kwargs.get('outer_width', None)
+        self.inner_width = kwargs.get('inner_width', None)
+        self.inner_height = kwargs.get('inner_height', None)
+        self.outer_height = kwargs.get('outer_height', None)
+        self.thickness_flange = kwargs.get('thickness_flange', None)
+        self.thickness_web = kwargs.get('thickness_web', None)
 
         self.Iy = self.calculate_Iy()
-        self.Iz = self.calculate_Iz()
+        self.Ix = self.calculate_Ix()
         self.A = self.calculate_A()
         self.m = self.calculate_m()
+        self.j = self.calculate_j()
+        self.Amean = self.calculate_Amean()
 
-    def calculate_Iy(self):
-        '''Calculates the moment of inertia about the y-axis (axial) for the given geometry'''
+    def calculate_Ix(self):
+        '''Calculates the moment of inertia about the x-axis (axial) for the given geometry'''
         if self.geometry == 'rigid_rectangle':
             return (1/12) * self.width * self.height**3
         elif self.geometry == 'rigid_circular':
@@ -80,12 +74,12 @@ class Arm():
         elif self.geometry == 'hollow_circular':
             return (1/4) * np.pi * (self.outer_radius**4 - self.inner_radius**4)
         elif self.geometry == 'hollow_rectangle':
-            return (1/12) * (self.outer_length * self.height**3 - self.inner_length * self.height**3)
+            return (1/12) * (self.outer_width * self.outer_height**3 - self.inner_width * self.inner_height**3)
         elif self.geometry == 'I_beam':
             return (1/12) * (self.width * self.height**3 - (self.width - self.thickness_web) * (self.height - 2*self.thickness_flange)**3)
     
-    def calculate_Iz(self):
-        '''Calculates the moment of inertia about the z-axis (transverse) for the given geometry'''
+    def calculate_Iy(self):
+        '''Calculates the moment of inertia about the y-axis (transverse) for the given geometry'''
         if self.geometry == 'rigid_rectangle':
             return (1/12) * self.height * self.width**3
         elif self.geometry == 'rigid_circular':
@@ -93,7 +87,7 @@ class Arm():
         elif self.geometry == 'hollow_circular':
             return (1/4) * np.pi * (self.outer_radius**4 - self.inner_radius**4)
         elif self.geometry == 'hollow_rectangle':
-            return (1/12) * (self.height * self.outer_length**3 - self.height * self.inner_length**3)
+            return (1/12) * (self.outer_height * self.outer_width**3 - self.inner_height * self.inner_width**3)
         elif self.geometry == 'I_beam':
             return (1/12) * (self.height * self.width**3 - (self.height - 2*self.thickness_flange) * (self.width - self.thickness_web)**3)
 
@@ -105,10 +99,192 @@ class Arm():
         elif self.geometry == 'hollow_circular':
             return np.pi * (self.outer_radius**2 - self.inner_radius**2)
         elif self.geometry == 'hollow_rectangle':
-            return self.outer_length * self.height - self.inner_length * self.height
+            return self.outer_width * self.outer_height - self.inner_width * self.inner_height
         elif self.geometry == 'I_beam':
-            return self.width * self.height - (self.width -self.thickness_web) * (self.height - 2*self.thickness_flange)
+            return self.width * self.height - (self.width - self.thickness_web) * (self.height - 2*self.thickness_flange)
         
     def calculate_m(self):
         return self.A * self.length * self.rho
+    
+    def calculate_j(self):
+        if self.geometry == 'rigid_rectangle':
+            return self.width * self.height * (self.width**2 + self.height**2) / 12
+        elif self.geometry == 'rigid_circular':
+            return np.pi * self.radius**4 / 2
+        elif self.geometry == 'hollow_circular':
+            return np.pi * (self.outer_radius-self.inner_radius) * (2*self.outer_radius)**3 / 4
+        elif self.geometry == 'hollow_rectangle':
+            t = (self.outer_width - self.inner_width)/2
+            t1 = (self.outer_height - self.inner_height)/2
+            return (2*t*t1*(self.outer_width-t)**2)*(self.outer_height-t1)**2/(self.outer_width*t + self.outer_height*t1 - t**2 - t1**2)
+        elif self.geometry == 'I_beam':
+            return 1.3/3 *(2*self.thickness_flange**3*self.width+self.thickness_web**3*(self.height-2*self.thickness_flange))
+        else:
+            pass
+
+    def calculate_Amean(self):
+        if self.geometry == 'hollow_rectangle':
+            return (self.inner_width + (self.inner_width+self.outer_width)/2)*( self.inner_height + (self.inner_height+self.outer_height)/2)
+        else:
+            pass
+        
+    
+        
+    
+    def calculate_torsion_deflection(self, T ):
+        '''Calculates the deflection of the arm under a given torque T'''
+        if self.geometry == 'rigid_rectangle':
+            return T * self.length / (self.G * self.j)
+        elif self.geometry == 'rigid_circular':
+            return T * self.length / (self.G * self.j)
+        elif self.geometry == 'hollow_circular':
+            return T * self.length / (self.G * self.j)
+        elif self.geometry == 'hollow_rectangle':
+            #return (T * self.length/(4* self.Amean**2 * self.G))*4*((self.outer_width/(self.outer_height-self.inner_height))+(self.inner_height/(self.outer_width-self.inner_width)))
+            return T*self.length/(self.G*self.j)
+        elif self.geometry == 'I_beam':
+            #T2 = T/(1+((self.height-2*self.thickness_flange)*self.thickness_web**3)/(2*self.width*self.thickness_flange**3))
+            #return 3 * T2 * self.length /(2 * self.G * self.width * self.thickness_flange**3)
+            return T*self.length/(self.G*self.j)
+        
+    
+    def calculate_deflection(self, F, axis: str = 'y', type: str = 'point'):
+        '''Calculates the deflection of the arm under a given force F'''
+        if axis == 'y':
+            MoI = self.Iy
+        elif axis == 'x':
+            MoI = self.Ix
+        else:
+            raise ValueError('Axis must be either "x" or "y"')
+        
+        if type == 'point':
+            return F * self.length**3 / (3 * self.E * MoI )
+        elif type == 'moment':
+            return F * self.length**2 / (2 * self.E * MoI)
+        else:
+            raise ValueError('Type must be either "point" or "moment"')
+    
+
+if __name__ == "__main__":
+    material = 'Al'
+    length = 2.85
+    F = 300
+    r_blade = 1.5
+    M_torsion =3*F*r_blade/20
+
+    rectangulararm = Arm(material, 'rigid_rectangle', length, width=0.1, height=0.1)
+    # deflection = rectangulararm.calculate_deflection(F, axis='y', type='point')
+    rect_arm_deflection = []
+    rect_arm_rotation = []
+    rect_arm_mass = []
+    for i in np.arange(0.01, 0.1, 0.001):
+        for j in np.arange(0.01, 0.1, 0.001):
+            rectangulararm = Arm(material, 'rigid_rectangle', length, width=i, height=j)
+            if rectangulararm.m < 10 and rectangulararm.calculate_deflection(F, axis='x', type='point') < 1:
+                rect_arm_deflection.append(rectangulararm.calculate_deflection(F, axis='x', type='point'))
+                rect_arm_rotation.append(rectangulararm.calculate_torsion_deflection(M_torsion)*180/np.pi)
+                rect_arm_mass.append(rectangulararm.m)
+
+    circulararm = Arm(material, 'rigid_circular', length, radius=0.1)
+    circ_arm_deflection = []
+    circ_arm_rotation = []
+    circ_arm_mass = []
+    for i in np.arange(0.01, 0.3, 0.001):
+        circulararm = Arm(material, 'rigid_circular', length, radius=i)
+        if circulararm.m < 10 and circulararm.calculate_deflection(F, axis='x', type='point') < 2:
+            circ_arm_deflection.append(circulararm.calculate_deflection(F, axis='x', type='point'))
+            circ_arm_rotation.append(circulararm.calculate_torsion_deflection(M_torsion)*180/np.pi)
+            circ_arm_mass.append(circulararm.m)
+
+    hollowrectarm = Arm(material, 'hollow_rectangle', length, outer_width=0.1, inner_width=0.08, outer_height=0.1, inner_height=0.08)
+    hollowrect_arm_deflection = [] 
+    hollowrect_arm_rotation =[]
+    hollowrect_arm_mass = []
+    for i in np.arange(0.01, 0.1, 0.01):
+        for j in np.arange(0.01, 0.1, 0.001):
+            if i > j:
+                for k in np.arange(0.01, 0.1, 0.01):
+                    for l in np.arange(0.01, 0.1, 0.001):
+                        if k > l:   
+                            hollowrectarm = Arm(material, 'hollow_rectangle', length, outer_width=i, inner_width=j, outer_height=k, inner_height=l)
+                            if hollowrectarm.m < 10 and hollowrectarm.m > 0 and hollowrectarm.calculate_deflection(F, axis='x', type='point') < 1 and hollowrectarm.calculate_deflection(F, axis='x', type='point') > 0\
+                                and hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi < 10:
+                                hollowrect_arm_deflection.append(hollowrectarm.calculate_deflection(F, axis='x', type='point'))
+                                hollowrect_arm_rotation.append(hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi)
+                                hollowrect_arm_mass.append(hollowrectarm.m)
+            
+    hollow_circle_arm = Arm(material, 'hollow_circular', length, outer_radius=0.1, inner_radius=0.08)
+    hollow_circle_arm_deflection = []
+    hollow_circle_arm_rotation = []
+    hollow_circle_arm_mass = []
+    for i in np.arange(0.01, 0.1, 0.001):
+        for j in np.arange(0.01, 0.1, 0.001):
+            if i>j:
+                hollow_circle_arm = Arm(material, 'hollow_circular', length, outer_radius=i, inner_radius=j)
+                if hollow_circle_arm.m < 10 and hollow_circle_arm.m > 0 and hollow_circle_arm.calculate_deflection(F, axis='x', type='point') < 1 and hollow_circle_arm.calculate_deflection(F, axis='x', type='point') > 0:
+                    hollow_circle_arm_deflection.append(hollow_circle_arm.calculate_deflection(F, axis='x', type='point'))
+                    hollow_circle_arm_rotation.append(hollow_circle_arm.calculate_torsion_deflection(M_torsion)*180/np.pi)
+                    hollow_circle_arm_mass.append(hollow_circle_arm.m)
+
+    ibeam_arm = Arm(material, 'I_beam', length, width=0.1, height=0.1, thickness_flange=0.01, thickness_web=0.01)
+    ibeam_arm_deflection = []
+    ibeam_arm_rotation = []
+    ibeam_arm_mass = []
+    for i in np.arange(0.01, 0.1, 0.005):
+        for l in np.arange(0.001, 0.02, 0.0009):
+            if l < i:
+                for j in np.arange(0.01, 0.1, 0.0009):
+                    for k in np.arange(0.001, 0.02, 0.0005):
+                        if k<j/2:
+                            ibeam_arm = Arm(material, 'I_beam', length, width=i, height=j, thickness_flange=k, thickness_web=l)
+                            if ibeam_arm.m < 10 and ibeam_arm.m > 0 and ibeam_arm.calculate_deflection(F, axis='x', type='point') < 1 and ibeam_arm.calculate_deflection(F, axis='x', type='point') > 0\
+                                and ibeam_arm.calculate_torsion_deflection(M_torsion)*180/np.pi < 10:
+                                ibeam_arm_deflection.append(ibeam_arm.calculate_deflection(F, axis='x', type='point'))
+                                ibeam_arm_rotation.append(ibeam_arm.calculate_torsion_deflection(M_torsion)*180/np.pi)
+                                ibeam_arm_mass.append(ibeam_arm.m)
+  
+
+    #use convex hull to obtain design space
+    
+    
+
+    # plt.plot(circ_arm_mass, circ_arm_deflection, label='Circular Arm')
+    # plt.plot(rect_arm_mass, rect_arm_deflection, label='Rectangular Arm')
+    # plt.plot(hollowrect_arm_mass, hollowrect_arm_deflection, label='Hollow Rectangular Arm')
+    # plt.plot(hollow_circle_arm_mass, hollow_circle_arm_deflection, label='Hollow Circular Arm')
+    # plt.plot(ibeam_arm_mass, ibeam_arm_deflection, label='I-Beam Arm')
+    # plt.legend()
+    # plt.xlabel('Mass (kg)')
+    # plt.ylabel('Deflection (m)')
+
+    # plt.show()
+
+    convex_hull(circ_arm_mass, circ_arm_deflection, label='Circular Arm', color='b')
+    convex_hull(rect_arm_mass, rect_arm_deflection, label='Rectangular Arm', color='g')
+    convex_hull(hollowrect_arm_mass, hollowrect_arm_deflection, label='Hollow Rectangular Arm', color='y')
+    convex_hull(hollow_circle_arm_mass, hollow_circle_arm_deflection, label='Hollow Circular Arm', color='c')
+    convex_hull(ibeam_arm_mass, ibeam_arm_deflection, label='I-Beam Arm', color='m')
+    plt.legend()
+    plt.xlabel('Mass (kg)')
+    plt.ylabel('Deflection (m)')
+    plt.show()
+
+    convex_hull(circ_arm_mass, circ_arm_rotation, label='Circular Arm', color='b')
+    convex_hull(rect_arm_mass, rect_arm_rotation, label='Rectangular Arm', color='g')
+    convex_hull(hollowrect_arm_mass, hollowrect_arm_rotation, label='Hollow Rectangular Arm', color='y')
+    convex_hull(hollow_circle_arm_mass, hollow_circle_arm_rotation, label='Hollow Circular Arm', color='c')
+    convex_hull(ibeam_arm_mass, ibeam_arm_rotation, label='I-Beam Arm', color='m')
+
+    
+    plt.legend()
+    plt.xlabel('Mass (kg)')
+    plt.ylabel('Torsion Deflection (deg)')
+    plt.show()
+    
+
+
+
+
+
+    
     
