@@ -99,27 +99,3 @@ if __name__ == "__main__":
 
     # Print the state space representation
     print(sys)
-
-    # Simulate the system
-
-    # Define the time vector
-    t = np.linspace(0, 10, 1000)
-
-    # Define the input vector
-    u = np.ones((6, t.size)) * 10
-
-    # Define the initial state vector
-    x0 = np.zeros(12)
-
-    # Simulate the system
-    t, y = ct.forced_response(sys, t, u, x0)
-
-    # Plot the results
-    plt.plot(t, y[9], label='x')
-    plt.plot(t, y[10], label='y')
-    plt.plot(t, y[11], label='z')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Position [m]')
-    plt.legend()
-    plt.grid()
-    plt.show()
