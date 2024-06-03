@@ -196,18 +196,18 @@ if __name__ == "__main__":
     drone_system = DroneSystem(mass, moment_inertia, moment_inertia_prop, torque_thrust_ratio, omega_thrust_ratio)
     
     # Define the PID controller parameters
-    Kp = 1.0
-    Ki = 0.5
-    Kd = 0.1
+    Kp = 0.5
+    Ki = 0.1
+    Kd = 0.05
 
     # Index for the Z position (altitude) in the output array
-    setpoint_index = 2  # Assuming Z position is at index 2 in the output array
+    setpoint_index = 11  # Assuming Z position is at index 2 in the output array
 
     # Define the time vector for the simulation
-    time = np.linspace(0, 10, 1000)
+    time = np.linspace(0, 5, 1000)
 
     # Define the setpoint signal (desired altitude)
-    setpoint = np.ones_like(time) * 10  # Step input for the desired altitude
+    setpoint = np.ones_like(time) * 100  # Step input for the desired altitude
 
     # Create the closed-loop system
     closed_loop_system = drone_system.add_pid_controller(Kp, Ki, Kd, setpoint_index)
@@ -220,7 +220,9 @@ if __name__ == "__main__":
     input_signals[0, :] = setpoint  # Setpoint signal
 
     # Simulate the response of the closed-loop system
-    time, response = ctrl.input_output_response(closed_loop_system, time, input_signals, X0=initial_state)
+    rtol = 1e-6
+    atol = 1e-8
+    time, response = ctrl.input_output_response(closed_loop_system, time, input_signals, X0=initial_state, rtol=rtol, atol=atol)
     
     # Plot the response (specifically for the altitude)
     plt.plot(time, response[0], label='Altitude (Z)')
