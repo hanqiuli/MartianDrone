@@ -1,6 +1,6 @@
 import numpy as np
-from Scanning import scanning
-from Scanning import res_8k,res_4k,res_HD,MP
+from Scanning_old import scanning
+from Scanning_old import res_8k,res_4k,res_HD,MP
 from tabulate import tabulate
 
 h     = 100 #m
