@@ -16,7 +16,7 @@ from power_load_profile import get_average_power_mission
 from solar_flux_analysis import plot_solar_flux_daily
 
 '''
-This file will size the solar arrays to produce the required average power required.
+This file will size the solar arrays to produce the average power required at average solar flux values.
 
 Current assumptions: 
     Solar cell efficiency is not affected by red shift
@@ -36,15 +36,16 @@ solar_cell_efficiency = 0.32 #Quadruple junction solar cell efficieny. Source: A
 design_incidence_angle = 15 #Design to charge on a 15 degree slope. Source: Terrain map of Ebberwalde crater
 average_solar_flux = 131.14 #Design for average yearly solar flux [W/m^2] source: MCD
 radiation_degradation_rate = 0.02 #Degradation rate [% per year] Source: https://www.powerandresources.com/blog/solar-power-is-challenging-on-mars
-active_area_factor = 0.90 #90% of cell area is available to generate power, refer to dust analysis section
-spectrum_shift_factor = 0 #Loss due to spectrum shift from AM0 conditions, need to get better number on this
+active_area_factor = 0.9 #90% of cell area is available to generate power, refer to dust analysis section
+spectrum_shift_factor = 0 #Loss due to spectrum shift from AM0 conditions, need to get better number on this. Argue this is included in efficiency (future improvements!)
 mission_lifetime = 2 #Duration of primary mission [years]
-battery_efficiency = 0.98#[%] need to get better numbers on this
+battery_efficiency = 0.99#[%] need to get better numbers on this
 harness_loss = 0.02 #[%] need to get better numbers on this
-packing_factor = 0.85 #Need a source for this
+packing_factor = 0.9 #Square cells packing density https://sinovoltaics.com/learning-center/basics/packing-density/#:~:text=The%20solar%20cell's%20packing%20density,module's%20operating%20temperature%20as%20well.
 bus_voltage = 100 #Voltage of power generation bus[V]
 voltage_per_cell = 3.025 #Voltage at max power per cell
 cell_area = 30.18 #Cell surface area [cm^2]
+solar_array_density = 1.7 #Density of solar array [kg/m^2] Typical value, used by MSH, alligns with data from Sparkwing Solar Panel	and https://exoterracorp.com/products/power/ 
 average_power_required = get_average_power_mission()
 print('required_average_power', average_power_required)
 
@@ -59,11 +60,11 @@ array_reference_area = power_generation_BOL / (design_solar_flux * solar_cell_ef
 
 #Solar array architecture
 n_cells_series_min = bus_voltage/voltage_per_cell
-n_cells_series = np.round(n_cells_series_min)+1
+n_cells_series = np.ceil(n_cells_series_min)
 n_cells = array_reference_area/(cell_area/10000)
 
 n_strings_min = n_cells/n_cells_series
-n_strings = np.round(n_strings_min)+1 #1 redundant string
+n_strings = np.ceil(n_strings_min)+1 #1 redundant string
 actual_n_cells = n_cells_series*n_strings
 
 print('n_cells_series', n_cells_series)
@@ -72,6 +73,13 @@ print('n_cells', actual_n_cells)
 
 actual_array_area = actual_n_cells*(cell_area/10000)/packing_factor
 print('actual_array_area [m^2]', actual_array_area)
+
+mass_array = actual_array_area * solar_array_density
+print('mass_array [kg]', mass_array)
+
+def get_array_mass():
+    mass_array = actual_array_area * solar_array_density
+    return mass_array
 
 #Get solar flux data over one day for average Martian day
 filepath_daily_flux = os.path.join('PowerTools/data', 'solar_flux_160deg.txt')
@@ -114,3 +122,6 @@ plt.show()
 
 #Dust analysis conclusion, the worst case dust accumulation shows drastic reduction in available power over 750 sols. 
 #Assume dust will be mostly shaken off and take a 10% margin on available solar array area. https://ieeexplore.ieee.org/abstract/document/9843820 (they took 15% but we have much larger blades, more downwash)
+
+
+#Charge time analysis at BOL, EOL, summer, winter
