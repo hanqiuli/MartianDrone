@@ -63,7 +63,7 @@ class DroneSystem:
         # This is the conversion matrix
 
         transformation_matrix = np.array([
-            [1,     1,                   1,                 1,      1,              1],
+            [-1,     -1,                   -1,                 -1,      -1,              -1],
             [0,     -L*np.sqrt(3)/2,    -L*np.sqrt(3)/2,    0,      L*np.sqrt(3)/2, L*np.sqrt(3)/2],
             [L,     0.5*L,              -0.5*L,             -L,     -0.5*L,         0.5*L],
             [-k_MT, k_MT,               -k_MT,              k_MT,   -k_MT,          k_MT]
@@ -81,6 +81,8 @@ class DroneSystem:
         self.linear_system = sys
 
         return sys
+    
+    
     
 
 if __name__ == "__main__":
