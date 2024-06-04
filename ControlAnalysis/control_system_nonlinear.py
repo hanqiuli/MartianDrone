@@ -1,3 +1,4 @@
+'''Nonlinear variant of the control system'''
 import sys
 
 import control as ctrl
