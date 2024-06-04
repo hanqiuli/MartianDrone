@@ -12,12 +12,14 @@ class PIDController(ctrl.NonlinearIOSystem):
     """
     This class defines a PID controller system using the control library.
     """
-    def __init__(self, Kp, Ki, Kd, Kii, name_input='pid', number_of_inputs=2, number_of_outputs=4):
+    def __init__(self, Kp, Ki, Kd, Kii, max_output, min_output=0, name_input='pid', number_of_inputs=2, number_of_outputs=4):
         super().__init__(updfcn=self.update, outfcn=self.output, inputs=number_of_inputs, outputs=number_of_outputs, states=3, name=name_input)
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
         self.Kii = Kii
+        self.min_output = min_output
+        self.max_output = max_output
 
     def update(self, t, x, u, params):
         e = u[0] - u[1]  # Error signal
@@ -28,7 +30,7 @@ class PIDController(ctrl.NonlinearIOSystem):
     def output(self, t, x, u, params):
         e = u[0] - u[1]  # Error signal
         u_pid = self.Kp * e + self.Ki * x[0] + self.Kd * (e - x[1]) + self.Kii * x[2]
-        return u_pid
+        return np.clip(u_pid, self.min_output, self.max_output)
 
 class DroneSystem:
     """
@@ -80,7 +82,7 @@ class DroneSystem:
 
         T, M_x, M_y, M_z = u
 
-        T += self.mass*g
+        # T += self.mass*g
 
         # Trigonometric functions for readability
         if not self.trolling:
@@ -148,13 +150,13 @@ class DroneSystem:
     def add_feedback(self, gain_list):
         # Gainlist is a list of tuples with (kp, ki, kd)
         # Create the PID controller for height
-        pid_controller_height = PIDController(*gain_list[0], name_input='pid_height', number_of_outputs=1) # Only commands thrust
+        pid_controller_height = PIDController(*gain_list[0], name_input='pid_height', max_output=300, min_output=10, number_of_outputs=1) # Only commands thrust
         # Create the PID controller for roll
-        pid_controller_roll = PIDController(*gain_list[1], name_input='pid_roll', number_of_outputs=1) # Commands torque around y
+        pid_controller_roll = PIDController(*gain_list[1], name_input='pid_roll', max_output=4, number_of_outputs=1) # Commands torque around y
         # Create the PID controller for pitch
-        pid_controller_pitch = PIDController(*gain_list[2], name_input='pid_pitch', number_of_outputs=1) # Commands torque around x
+        pid_controller_pitch = PIDController(*gain_list[2], name_input='pid_pitch',max_output=4, number_of_outputs=1) # Commands torque around x
         # Create the PID controller for yaw
-        pid_controller_yaw = PIDController(*gain_list[3], name_input='pid_yaw', number_of_outputs=1) # Commands torque around z
+        pid_controller_yaw = PIDController(*gain_list[3], name_input='pid_yaw',max_output=4, number_of_outputs=1) # Commands torque around z
 
         #Define the system
         self.create_nonlinear_system()
@@ -199,21 +201,22 @@ if __name__ == "__main__":
     
     # Define the PID controller parameters
     gain_list = [
-        [2, 0.001, -0.001, 0],  # height
+        [50, 0.5, 0, 1],  # height
         [1, 0.5, 0, 0],  # roll
         [1, 0.5, 0, 0],  # pitch
         [1, 0.5, 0, 0],  # yaw
     ]
 
     # Define the time vector for the simulation
-    time = np.linspace(0, 1000, 10000)
+    dt = 0.01
+    time = np.arange(0, 100, dt)
 
     # Define the setpoint signals for roll, pitch, and yaw
     setpoint_roll = np.zeros_like(time)
     setpoint_pitch = np.zeros_like(time)  # Desired pitch angle in radians
     # setpoint_pitch = np.ones_like(time) * 5 * np.pi / 180  
     setpoint_yaw = np.zeros_like(time)
-    setpoint_height = np.ones_like(time) * 1000
+    setpoint_height = np.ones_like(time) * 50
 
     # # Stack the setpoint signals
     setpoints = np.vstack((setpoint_height, setpoint_roll, setpoint_pitch, setpoint_yaw))
