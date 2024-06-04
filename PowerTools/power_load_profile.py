@@ -41,38 +41,37 @@ profile_power = {
     'thermal_avionics': 10,
     'thermal_battery': 15,
     'avionics': 5,
-    'avionics_data_gathering': 5
 }
 
 profile_time_2_day_mission = {
     # 'name': (durations [s])
     'morning_rest': 12*3600, #Assume takeoff at 8am, will have to optimze this somehow
     'takeoff': 30,
-    'cruise': 1000,
-    'scanning': 480,
+    'cruise': 900,
+    'scanning': 600,
     'landing': 30,
     'collection': 100,
     'mid_mission_rest': time_mars_day,
     'takeoff_with_rock': 30,
-    'cruise_with_rock': 1000,
+    'cruise_with_rock': 900,
     'landing_with_rock': 30,
     'deposit_rock': 60,
-    'afternoon_rest': 2*time_mars_day-12*3600-30-1000-480-30-100-time_mars_day-30-1000-30-60
+    'afternoon_rest': 2*time_mars_day-12*3600-30-900-600-30-100-time_mars_day-30-900-30-60
 }
 
 #Combine powers to form power usage states
-power_usage_baseline = profile_power['communication'] + profile_power['thermal_avionics'] + profile_power['thermal_battery'] + profile_power['avionics'] + profile_power['avionics_data_gathering']
-power_usage_takeoff = power_usage_baseline + profile_power['propulsive_takeoff'] + profile_power['thermal_propulsion']
-power_usage_cruise = power_usage_baseline + profile_power['propulsive_cruise'] + profile_power['thermal_propulsion']
-power_usage_scanning = power_usage_baseline + profile_power['propulsive_scanning'] + profile_power['thermal_propulsion'] + profile_power['payload_scanning']
-power_usage_hover = power_usage_baseline + profile_power['propulsive_hover'] + profile_power['thermal_propulsion']
-power_usage_landing = power_usage_baseline + profile_power['propulsive_landing'] + profile_power['thermal_propulsion']
-power_usage_collection = power_usage_baseline + profile_power['payload_collection'] + profile_power['thermal_propulsion']
-power_usage_cooling = power_usage_baseline + profile_power['thermal_propulsion']
-power_usage_takeoff_with_rock = power_usage_baseline + profile_power['propulsive_takeoff_with_rock']+profile_power['thermal_propulsion']
-power_usage_cruise_with_rock = power_usage_baseline + profile_power['propulsive_cruise_with_rock']+profile_power['thermal_propulsion']
-power_usage_landing_with_rock = power_usage_baseline + profile_power['propulsive_landing_with_rock']+profile_power['thermal_propulsion']
-power_usage_deposit_rock = power_usage_baseline + profile_power['payload_collection']
+power_usage_baseline = profile_power['thermal_avionics'] + profile_power['thermal_battery'] + profile_power['avionics']
+power_usage_takeoff = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_takeoff'] + profile_power['thermal_propulsion']
+power_usage_cruise = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_cruise'] + profile_power['thermal_propulsion']
+power_usage_scanning = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_scanning'] + profile_power['thermal_propulsion'] + profile_power['payload_scanning']
+power_usage_hover = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_hover'] + profile_power['thermal_propulsion']
+power_usage_landing = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_landing'] + profile_power['thermal_propulsion']
+power_usage_collection = power_usage_baseline + profile_power['communication'] + profile_power['payload_collection'] + profile_power['thermal_propulsion']
+power_usage_cooling = power_usage_baseline + profile_power['communication'] + profile_power['thermal_propulsion']
+power_usage_takeoff_with_rock = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_takeoff_with_rock']+profile_power['thermal_propulsion']
+power_usage_cruise_with_rock = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_cruise_with_rock']+profile_power['thermal_propulsion']
+power_usage_landing_with_rock = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_landing_with_rock']+profile_power['thermal_propulsion']
+power_usage_deposit_rock = power_usage_baseline + profile_power['communication'] + profile_power['payload_collection']
 
 #Construct the power usage profile for the 1 day return mission
 # time_series_1_day = np.linspace(0, time_mars_day, time_mars_day)
