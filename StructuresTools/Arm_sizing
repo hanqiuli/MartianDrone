@@ -194,7 +194,7 @@ class Arm():
 
 if __name__ == "__main__":
     material = 'Al'
-    length = 2.85
+    length = 2.03
     F = 46*(1.5**2)*3.71/6
     r_blade = 1.5
     M_torsion =3*F*r_blade/20
