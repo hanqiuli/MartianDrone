@@ -6,13 +6,14 @@ class PIDController:
     """
     PID Controller for the drone system
     """
-    def __init__(self, Kp, Ki, Kd, thruster_weights):
+    def __init__(self, Kp, Ki, Kd, u_min=0, u_max=40):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
-        self.thruster_weights = thruster_weights
         self.integral = 0
         self.previous_error = 0
+        self.u_min = u_min
+        self.u_max = u_max
 
     def compute_control(self, setpoint, measurement, dt):
         error = setpoint - measurement
@@ -21,7 +22,7 @@ class PIDController:
         self.previous_error = error
 
         u_pid = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
-        return u_pid * self.thruster_weights
+        return np.clip(u_pid, self.u_min, self.u_max)
 
 class DroneSystem:
     def __init__(self, mass, moment_inertia, moment_inertia_prop, torque_thrust_ratio, omega_thrust_ratio, ENV, arm_length=2):
@@ -34,7 +35,7 @@ class DroneSystem:
         self.arm_length = arm_length
         
         self.transformation_matrix = np.array([
-            [1,     1,                   1,                 1,      1,              1],
+            [-1,     -1,                   -1,                 -1,      -1,              -1],
             [0,     -arm_length*np.sqrt(3)/2,    -arm_length*np.sqrt(3)/2,    0,      arm_length*np.sqrt(3)/2, arm_length*np.sqrt(3)/2],
             [arm_length,     0.5*arm_length,              -0.5*arm_length,             -arm_length,     -0.5*arm_length,         0.5*arm_length],
             [-torque_thrust_ratio, torque_thrust_ratio,               -torque_thrust_ratio,              torque_thrust_ratio,   -torque_thrust_ratio,          torque_thrust_ratio]
@@ -42,8 +43,7 @@ class DroneSystem:
         
     def nonlinear_system_dynamics(self, t, state, inputs):
         v_xr, v_yr, v_zr, omega_xr, omega_yr, omega_zr, Theta, Phi, Psi, X, Y, Z = state
-        u = np.clip(inputs, 10, 40)  # Clip the input signal to be between 10 and 40
-        T, M_x, M_y, M_z = np.dot(self.transformation_matrix, u)
+        T, M_x, M_y, M_z = np.dot(self.transformation_matrix, inputs)
 
         g = self.environment['g']
         J_x, J_y, J_z = self.moment_inertia
@@ -72,26 +72,32 @@ class DroneSystem:
         dY = s_Psi * c_Theta * v_xr + (c_Psi * c_Phi + s_Psi * s_Theta * s_Phi) * v_yr + (-c_Psi * s_Phi + s_Psi * s_Theta * c_Phi) * v_zr
         dZ = -s_Theta * v_xr + c_Theta * s_Phi * v_yr + c_Theta * c_Phi * v_zr
 
-        return [dv_xr, dv_yr, dv_zr, domega_xr, domega_yr, domega_zr, dTheta, dPhi, dPsi, dX, dY, dZ]
+        return np.array([dv_xr, dv_yr, dv_zr, domega_xr, domega_yr, domega_zr, dTheta, dPhi, dPsi, dX, dY, dZ])
 
     def simulate(self, initial_state, setpoints, time, pid_controllers, hover_thrust):
-        dt = time[1] - time[0]
+        
         num_steps = len(time)
         state = initial_state
         states = np.zeros((num_steps, len(state)))
         states[0, :] = state
-        inputs = np.ones(6) * hover_thrust
+        thrust_history = np.zeros((num_steps, 6))
         
         for i in range(1, num_steps):
+            dt = time[i] - time[i-1]
             current_setpoints = setpoints[:, i]
             controls = np.zeros(6)
             for j, pid in enumerate(pid_controllers):
-                controls += pid.compute_control(current_setpoints[j], state[j + 6], dt)
-            inputs = np.clip(controls + hover_thrust, 10, 40)
-            state = solve_ivp(lambda t, x: self.nonlinear_system_dynamics(t, x, inputs), [0, dt], state).y[:, -1]
+                control_input = pid.compute_control(current_setpoints[j], state[setpoint_indices[j]], dt)
+                controls[j] = control_input
+
+            thrust = np.clip(controls, 0, 40)
+            x_dot = self.nonlinear_system_dynamics(time[i], state, thrust)
+            state += x_dot * dt
+
             states[i, :] = state
+            thrust_history[i, :] = thrust
         
-        return states
+        return states, thrust_history
 
     def plot_response(self, time, response, setpoint_indices):
         fig, ax = plt.subplots(3, 4, figsize=(20, 10))
@@ -127,30 +133,30 @@ if __name__ == "__main__":
     moment_inertia_prop = 0.01
     torque_thrust_ratio = 0.1
     omega_thrust_ratio = 0.1
-    ENV = {'g': 9.81}
+    ENV = {'g': 3.71}
     arm_length = 2
 
     drone_system = DroneSystem(mass, moment_inertia, moment_inertia_prop, torque_thrust_ratio, omega_thrust_ratio, ENV, arm_length)
 
-    Kp = 0.7
+    Kp = 1.0
     Ki = 0.1
-    Kd = 0
+    Kd = 0.5
 
-    setpoint_indices = {'roll': 7, 'pitch': 6, 'yaw': 8, 'height': 11}
+    setpoint_indices = [6, 7, 8, 11]
     
     time = np.linspace(0, 500, 10000)
 
     setpoint_roll = np.zeros_like(time)
-    setpoint_pitch = np.ones_like(time) * 5 * np.pi / 180
+    setpoint_pitch = np.zeros_like(time) * 5 * np.pi / 180
     setpoint_yaw = np.zeros_like(time)
-    setpoint_height = np.ones_like(time) * -80
+    setpoint_height = np.ones_like(time) * -1000
 
     setpoints = np.vstack((setpoint_roll, setpoint_pitch, setpoint_yaw, setpoint_height))
 
-    pid_roll = PIDController(Kp, Ki, Kd, drone_system.transformation_matrix[2])
-    pid_pitch = PIDController(Kp, Ki, Kd, drone_system.transformation_matrix[1])
-    pid_yaw = PIDController(Kp, Ki, Kd, drone_system.transformation_matrix[3])
-    pid_height = PIDController(Kp, Ki, Kd, -drone_system.transformation_matrix[0])
+    pid_roll = PIDController(Kp, Ki, Kd)
+    pid_pitch = PIDController(Kp, Ki, Kd)
+    pid_yaw = PIDController(Kp, Ki, Kd)
+    pid_height = PIDController(Kp, Ki, Kd)
 
     pid_controllers = [pid_roll, pid_pitch, pid_yaw, pid_height]
 
@@ -159,10 +165,10 @@ if __name__ == "__main__":
 
     hover_thrust = mass * ENV['g'] / 6  # Dividing total thrust required for hover by the number of rotors
 
-    response = drone_system.simulate(initial_state, setpoints, time, pid_controllers, hover_thrust)
+    response, inputs = drone_system.simulate(initial_state, setpoints, time, pid_controllers, hover_thrust)
 
-    plt.plot(time, response[:, setpoint_indices['pitch']], label='Pitch response')
-    plt.plot(time, response[:, 11], label='Height response')
+    plt.plot(time, response[:, setpoint_indices[1]], label='Pitch response')
+    plt.plot(time, response[:, setpoint_indices[3]], label='Height response')
     plt.xlabel('Time (s)')
     plt.ylabel('Response')
     plt.title('Pitch and Height Response with PID Control')
@@ -170,8 +176,8 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
     
-    for i in range(12, 18):
-        plt.plot(time, response[:, i], label=f'Thrust {i-11}')
+    for i in range(0, 6):
+        plt.plot(time, inputs[:, i], label=f'Thrust {i}')
     
     plt.xlabel('Time (s)')
     plt.ylabel('Thrust')

@@ -1,107 +1,130 @@
 import numpy as np
-from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+from scipy.integrate import odeint
 
-# Hexacopter parameters
-m = 0.468  # mass (kg)
-g = 9.81   # gravity (m/s^2)
-Ixx = 4.856e-3  # Inertia around x-axis
-Iyy = 4.856e-3  # Inertia around y-axis
-Izz = 8.801e-3  # Inertia around z-axis
-k = 2.980e-6    # lift constant
-b = 1.140e-7    # drag constant
-l = 0.225       # distance from center to rotor
+# Define hexacopter parameters
+m = 1.0  # mass of the hexacopter
+g = 9.81  # gravitational acceleration
+J = np.diag([0.1, 0.1, 0.2])  # moment of inertia matrix
 
-# Quaternion functions
-def quaternion_to_rotation_matrix(q):
-    q0, q1, q2, q3 = q
-    return np.array([
-        [q0**2 + q1**2 - q2**2 - q3**2, 2*(q1*q2 - q0*q3), 2*(q0*q2 + q1*q3)],
-        [2*(q1*q2 + q0*q3), q0**2 - q1**2 + q2**2 - q3**2, 2*(q2*q3 - q0*q1)],
-        [2*(q1*q3 - q0*q2), 2*(q0*q1 + q2*q3), q0**2 - q1**2 - q2**2 + q3**2]
-    ])
+# Define PID gains
+Kp_alt = 10
+Ki_alt = 1
+Kd_alt = 4
 
-def quaternion_derivative(q, angular_velocity):
-    q0, q1, q2, q3 = q
-    p, q, r = angular_velocity
-    q_dot = 0.5 * np.array([
-        -q1*p - q2*q - q3*r,
-        q0*p - q3*q + q2*r,
-        q3*p + q0*q - q1*r,
-        -q2*p + q1*q + q0*r
-    ])
-    return q_dot
+Kp_att = 1.46
+Ki_att = 2.151
+Kd_att = 0.326
 
-def quaternion_error(q_desired, q_actual):
-    q_conj = np.array([q_actual[0], -q_actual[1], -q_actual[2], -q_actual[3]])
-    q_error = quaternion_multiply(q_desired, q_conj)
-    return q_error
+# Define initial conditions
+initial_state = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # [x, y, z, phi, theta, psi, x_dot, y_dot, z_dot, p, q, r]
 
-def quaternion_multiply(q1, q2):
-    w1, x1, y1, z1 = q1
-    w2, x2, y2, z2 = q2
-    return np.array([
-        w1*w2 - x1*x2 - y1*y2 - z1*z2,
-        w1*x2 + x1*w2 + y1*z2 - z1*y2,
-        w1*y2 - x1*z2 + y1*w2 + z1*x2,
-        w1*z2 + x1*y2 - y1*x2 + z1*w2
-    ])
+# Define time vector
+t = np.linspace(0, 50, 1000)
 
-# Translational dynamics
-def translational_dynamics(thrust, q, velocity):
-    R = quaternion_to_rotation_matrix(q)
-    gravity = np.array([0, 0, -m * g])
-    thrust_force = np.array([0, 0, thrust])
-    acceleration = (R @ thrust_force + gravity) / m
-    return acceleration
+# Generate the doublet signal for altitude
+desired_z = np.zeros_like(t)
+desired_z[t <= 5] = np.linspace(0, 20, len(t[t <= 5]))
+desired_z[(t > 5) & (t <= 10)] = 20
+desired_z[(t > 10) & (t <= 20)] = 30
+desired_z[(t > 20) & (t <= 30)] = 10
+desired_z[(t > 30) & (t <= 32)] = 20
+desired_z[t > 32] = 20
 
-# Rotational dynamics
-def rotational_dynamics(tau, angular_velocity):
-    p, q, r = angular_velocity
-    I = np.diag([Ixx, Iyy, Izz])
-    I_inv = np.linalg.inv(I)
-    gyro_effects = np.cross(angular_velocity, I @ angular_velocity)
-    angular_acceleration = I_inv @ (tau - gyro_effects)
-    return angular_acceleration
+desired_state = [0, 0, 20, 0, 0, 0]  # [x, y, z, phi, theta, psi]
 
-# PD controller
-def pd_controller(q_error, angular_velocity_error, Kp, Kd):
-    tau = Kp * q_error[1:4] + Kd * angular_velocity_error
-    return tau
+# PID Controller
+class PIDController:
+    def __init__(self, Kp, Ki, Kd, set_point, PID_type='altitude'):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.set_point = set_point
+        self.integral = 0
+        self.previous_error = 0
+        self.type=PID_type
 
-# System dynamics
-def system_dynamics(t, state, q_desired, angular_velocity_desired, Kp, Kd):
-    position = state[0:3]
-    velocity = state[3:6]
-    q = state[6:10]
-    angular_velocity = state[10:13]
+    def update(self, measurement, dt):
+        error = self.set_point - measurement
+        self.integral += error * dt
+        derivative = (error - self.previous_error) / dt
+        self.previous_error = error
+        if self.type == 'altitude':
+            return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.5*m*g, 0.5*m*g)
+        else:
+            return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+        
+# Hexacopter dynamics
+def hexacopter_dynamics(state, t, u1, u2, u3, u4):
+    x, y, z, phi, theta, psi, x_dot, y_dot, z_dot, p, q, r = state
+    
+    # Translational dynamics
+    x_ddot = (u1/m) * (np.cos(phi) * np.sin(theta) * np.cos(psi) + np.sin(phi) * np.sin(psi))
+    y_ddot = (u1/m) * (np.cos(phi) * np.sin(theta) * np.sin(psi) - np.sin(phi) * np.cos(psi))
+    z_ddot = (u1/m) * np.cos(phi) * np.cos(theta) - g
+    
+    # Rotational dynamics
+    phi_dot = p + q * np.sin(phi) * np.tan(theta) + r * np.cos(phi) * np.tan(theta)
+    theta_dot = q * np.cos(phi) - r * np.sin(phi)
+    psi_dot = q * np.sin(phi) / np.cos(theta) + r * np.cos(phi) / np.cos(theta)
+    
+    p_dot = (J[1,1] - J[2,2]) * q * r / J[0,0] + u2 / J[0,0]
+    q_dot = (J[2,2] - J[0,0]) * p * r / J[1,1] + u3 / J[1,1]
+    r_dot = (J[0,0] - J[1,1]) * p * q / J[2,2] + u4 / J[2,2]
+    
+    return [x_dot, y_dot, z_dot, phi_dot, theta_dot, psi_dot, x_ddot, y_ddot, z_ddot, p_dot, q_dot, r_dot]
 
-    q_error = quaternion_error(q_desired, q)
-    angular_velocity_error = angular_velocity_desired - angular_velocity
+# Initialize PID controllers for altitude and attitude
+pid_altitude = PIDController(Kp_alt, Ki_alt, Kd_alt, desired_state[2])
+pid_roll = PIDController(Kp_att, Ki_att, Kd_att, desired_state[3])
+pid_pitch = PIDController(Kp_att, Ki_att, Kd_att, desired_state[4])
+pid_yaw = PIDController(Kp_att, Ki_att, Kd_att, desired_state[5])
 
-    thrust = m * g  # For simplicity, assume hover thrust
-    tau = pd_controller(q_error, angular_velocity_error, Kp, Kd)
+# Simulation loop
+dt = t[1] - t[0]
+states = [initial_state]
+for i in range(1, len(t)):
+    current_state = states[-1]
+    z = current_state[2]
+    phi = current_state[3]
+    theta = current_state[4]
+    psi = current_state[5]
+    
+    pid_altitude.set_point = desired_z[i]  # Update the desired altitude at each time step
+    
+    u1 = m * (g + pid_altitude.update(z, dt))
+    u2 = pid_roll.update(phi, dt)
+    u3 = pid_pitch.update(theta, dt)
+    u4 = pid_yaw.update(psi, dt)
+    
+    new_state = odeint(hexacopter_dynamics, current_state, [0, dt], args=(u1, u2, u3, u4))[-1]
+    states.append(new_state)
 
-    acceleration = translational_dynamics(thrust, q, velocity)
-    angular_acceleration = rotational_dynamics(tau, angular_velocity)
-    q_dot = quaternion_derivative(q, angular_velocity)
+# Convert states to numpy array for easier plotting
+states = np.array(states)
 
-    return np.hstack((velocity, acceleration, q_dot, angular_acceleration))
+# Plotting
+plt.figure()
+plt.subplot(3, 1, 1)
+plt.plot(t, states[:, 2], label='z')
+plt.plot(t, desired_z, 'r--', label='desired z')
+plt.xlabel('Time [s]')
+plt.ylabel('Altitude [m]')
+plt.legend()
 
-# Initial conditions
-initial_position = np.array([0, 0, 0])
-initial_velocity = np.array([0, 0, 0])
-initial_q = np.array([1, 0, 0, 0])  # No initial rotation
-initial_angular_velocity = np.array([0, 0, 0])
-initial_state = np.hstack((initial_position, initial_velocity, initial_q, initial_angular_velocity))
+plt.subplot(3, 1, 2)
+plt.plot(t, states[:, 3], label='phi')
+plt.plot(t, np.zeros_like(t), 'r--', label='desired phi')
+plt.xlabel('Time [s]')
+plt.ylabel('Roll [rad]')
+plt.legend()
 
-# Desired state
-q_desired = np.array([0.92387953, 0, 0.38268343, 0])  # Desired 45-degree rotation around z-axis
-angular_velocity_desired = np.array([0, 0, 0])
+plt.subplot(3, 1, 3)
+plt.plot(t, states[:, 4], label='theta')
+plt.plot(t, np.zeros_like(t), 'r--', label='desired theta')
+plt.xlabel('Time [s]')
+plt.ylabel('Pitch [rad]')
+plt.legend()
 
-# PD gains
-Kp = np.array([1, 1, 1])
-Kd = np.array([0.1, 0.1, 0.1])
-
-# Time span for the simulation
-t_span = (0, 10)  # 10 seconds
+plt.tight_layout()
+plt.show()
