@@ -1,170 +1,221 @@
 # doi:10.1088/1757-899X/1226/1/012113
 
 """
-Variables HOT CASE on ground (2m):
-Boundary Conditions
-----------------
-T_gnd = 306K
-T_atm_1m = 274K
+-------------HOT CASE----------------
+        self.temperature_atmosphere = 269  # [K] - Atmospheric temperature
+        self.temperature_ground = 292.79  # [K] - Ground temperature
+        self.irradiance_sun = 646  # [W/m^2] - Solar irradiance
+        self.absorptivity = 0.2  # [-] - Absorptance of the drone
+        self.f_sr = 1  # [-] - View factor for solar radiation
+        self.area_top = 1.5  # [m^2] - Top surface area of the drone
+        self.albedo = 0.4  # [-] - Albedo of Mars
+        self.temperature_effective_mars = 209.8  # [K] - Effective temperature for radiation of black body of Mars
+        self.emissivity_mars = 0.65  # [-]-  Emissivity of Mars
+        self.stefan_boltzmann_constant = 5.6704e-8  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
+        # Drone properties
+        self.heat_rate_electronics = 200  # [W] - Heat from electronics
+        self.heat_rate_motor = 0.3 * 7300  # [W] - Heat from motor
+        self.coefficient_convection = 3  # [W/m^2*K] - Convection coefficient
+        self.area_total = 4  # [m^2] - Total surface area of the drone
+        self.f_re = 1  # [-] - View factor for emitted radiation
+        self.emissivity_drone = 0.85  # [-] - Emissivity of the drone
 
-
+        # Thermal resistance
+        self.num_legs = 0  # [-] - Number of legs
+        self.thermal_resistance_ground_drone = 0.049  # [K/W] - Thermal resistance between ground and drone
+        self.thermal_resistance_suspension_drone = 1.052  # [K/W] - Thermal resistance between suspension and drone
 """
-from sympy.solvers import solve
-from sympy import Symbol
-
-# -------------HOT CASE----------------
-temp_atm = 269
-temp_gnd = 292.79
-
-i_s = 646 # MAX 646
-absorptivity = 0.2
-f_sr = 1
-area_top = 1.5
-
-albedo = 0.4
-
-temp_eff = 209.8
-em_mars = 0.65
-sigma = 5.6704E-08
-
-q_electronics = 200
-q_motor = 0.3*7300
-
-h = 3
-area_total = 4
-
-f_re = 1
-em_drone = 0.85
-
-n_legs = 0
-R_gnd = 0.049
-R_susp = 1.052
-
+"""
 # ----------------MSL VERIFICATION/VALIDATION----------------
-# temp_atm = 270.73
-# temp_gnd = 292.79
+# temperature_atmosphere = 270.73
+# temperature_ground = 292.79
 
-# i_s = 587.424
+# irradiance_sun = 587.424
 # absorptivity = 0.2
 # f_sr = 1
 # area_top = 1.598
 
 # albedo = 0.4
 
-# temp_eff = 209.8
-# em_mars = 0.65
-# sigma = 5.6704E-08
+# temperature_effective_mars = 209.8
+# emissivity_mars = 0.65
+# stefan_boltzmann_constant = 5.6704E-08
 
-# q_electronics = 301.988
-# q_motor = 2000
+# heat_rate_electronics = 301.988
+# heat_rate_motor = 2000
 
-# h = 1
+# coefficient_convection = 1
 # area_total = 6.39
 
 # f_re = 1
-# em_drone = 0.85
+# emissivity_drone = 0.85
 
-# n_legs = 6
-# R_gnd = 0.049
-# R_susp = 1.052
-
+# num_legs = 6
+# thermal_resistance_ground_drone = 0.049
+# thermal_resistance_suspension_drone = 1.052
+"""
+"""
 # ----------------COLD CASE----------------
-# temp_atm = 173
-# temp_gnd = 170
+        self.temperature_atmosphere = 173  # [K] - Atmospheric temperature
+        self.temperature_ground = 170  # [K] - Ground temperature
+        self.irradiance_sun = 0  # [W/m^2] - Solar irradiance
+        self.absorptivity = 0.2  # [-] - Absorptance of the drone
+        self.f_sr = 1  # [-] - View factor for solar radiation
+        self.area_top = 1.5  # [m^2] - Top surface area of the drone
+        
+        self.albedo = 0.4  # [-] - Albedo of Mars
+        
+        self.temperature_effective_mars = 209.8  # [K] - Effective temperature for radiation of black body of Mars
+        self.emissivity_mars = 0.65  # [-]-  Emissivity of Mars
+        self.stefan_boltzmann_constant = 5.6704e-8  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
-# i_s = 0
-# absorptivity = 0.2
-# f_sr = 1
-# area_top = 1.5
+        # Drone properties
+        self.heat_rate_electronics = 50  # [W] - Heat from electronics
+        self.heat_rate_motor = 0  # [W] - Heat from motor
+        
+        self.coefficient_convection = 1  # [W/m^2*K] - Convection coefficient
+        self.area_total = 4  # [m^2] - Total surface area of the drone
+        self.f_re = 1  # [-] - View factor for emitted radiation
+        self.emissivity_drone = 0.85  # [-] - Emissivity of the drone
 
-# albedo = 0.4
+        # Thermal resistance
+        self.num_legs = 0  # [-] - Number of legs
+        self.thermal_resistance_ground_drone = 0.049  # [K/W] - Thermal resistance between ground and drone
+        self.thermal_resistance_suspension_drone = 1.052  # [K/W] - Thermal resistance between suspension and drone
+"""
 
-# temp_eff = 209.8
-# em_mars = 0.65
-# sigma = 5.6704E-08
+from sympy.solvers import solve
+from sympy import Symbol
 
-# q_electronics = 50
-# q_motor = 0
 
-# h = 1
-# area_total = 4
+class MarsDroneHeatTransfer:
+    """
+    This class models the heat transfer of a drone on the Martian surface.
+    """
 
-# f_re = 1
-# em_drone = 0.85
+    def __init__(self):
+        # Environmental properties
+        self.temperature_atmosphere = 173  # [K] - Atmospheric temperature
+        self.temperature_ground = 170  # [K] - Ground temperature
+        self.irradiance_sun = 0  # [W/m^2] - Solar irradiance
+        self.absorptivity = 0.2  # [-] - Absorptance of the drone
+        self.f_sr = 1  # [-] - View factor for solar radiation
+        self.area_top = 1.5  # [m^2] - Top surface area of the drone
+        
+        self.albedo = 0.4  # [-] - Albedo of Mars
+        
+        self.temperature_effective_mars = 209.8  # [K] - Effective temperature for radiation of black body of Mars
+        self.emissivity_mars = 0.65  # [-]-  Emissivity of Mars
+        self.stefan_boltzmann_constant = 5.6704e-8  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
-# n_legs = 2
-# R_gnd = 23.40513869
-# R_susp = 0
+        # Drone properties
+        self.heat_rate_electronics = 50  # [W] - Heat from electronics
+        self.heat_rate_motor = 0  # [W] - Heat from motor
+        
+        self.coefficient_convection = 1  # [W/m^2*K] - Convection coefficient
+        self.area_total = 4  # [m^2] - Total surface area of the drone
+        self.f_re = 1  # [-] - View factor for emitted radiation
+        self.emissivity_drone = 0.85  # [-] - Emissivity of the drone
 
-def heat_external_input(x):
-    # heat_sun_irradiation: Q_sun = a * I_s * A_top * F_s/r
-    q_sun = absorptivity * i_s * area_top * f_sr
-    # heat_albedo: Q_albedo = b * a * I_s * A_bottom * F_s/r
-    q_albedo = albedo * absorptivity * i_s * area_top * f_sr
-    # heat thermal radiation: Q_IR = J_p * A_bottom; J_p = e * s * T_eff ^4; e ~= 1 - b
-    j_p = em_mars * sigma * temp_eff**4
-    q_ir = j_p * area_top 
-
-    # heat conduction: Q_cond = n_legs* (T_gnd - T_drone)/(R_gnd - R_susp)
-    q_cond = n_legs * (temp_gnd - x)/(R_gnd + R_susp)
-    return q_sun + q_albedo + q_ir + q_cond, (q_sun,q_albedo,q_ir,q_cond)
-
-def heat_internal_input():
-    # heat electrical systems
+        # Thermal resistance
+        self.num_legs = 0  # [-] - Number of legs
+        self.thermal_resistance_ground_drone = 0.049  # [K/W] - Thermal resistance between ground and drone
+        self.thermal_resistance_suspension_drone = 1.052  # [K/W] - Thermal resistance between suspension and drone
     
-    # heat propulsion motor
-    return q_electronics + q_motor
+    def heat_rate_external_input(self, temperature_drone):
+        """
+        Calculates the total heat input from external sources.
 
-def heat_convection(x):
-    # Qconv = h*(T_drone - T_atm)*Asph
-    """
-    This function calculates the heat convection from the atmosphere
+        Args:
+            temperature_drone: The current temperature of the drone [K].
 
-    Args:
-    Asph: is the surface of a sphere equal to that of the drone
-    h is the convection coefficient, for Curiosity it was taken as 1 W/(m^2 K) as its hard to evaluate
-    
-    Returns:
+        Returns:
+            A tuple containing the total heat input [W] and individual components [W].
+        """
 
-    """
-    q_conv = h * (x - temp_atm) * area_total
-    return q_conv
+        heat_rate_sun = self.absorptivity * self.irradiance_sun * self.area_top * self.f_sr
+        heat_rate_albedo = self.albedo * heat_rate_sun
+        j_p = self.emissivity_mars * self.stefan_boltzmann_constant * self.temperature_effective_mars**4
+        heat_rate_ir = j_p * self.area_top
+        heat_rate_cond = self.num_legs * (self.temperature_ground - temperature_drone) / (self.thermal_resistance_ground_drone + self.thermal_resistance_suspension_drone)
+        total_heat_rate_ext = heat_rate_sun + heat_rate_albedo + heat_rate_ir + heat_rate_cond
+        return total_heat_rate_ext, (heat_rate_sun, heat_rate_albedo, heat_rate_ir, heat_rate_cond)
 
-def heat_out(x):
-    # Qout = s*e*(T_drone ^4 - T_amb ^4)*Asph
-    """
-    This function calculates the heat convection from the atmosphere
+    def heat_rate_internal_input(self):
+        """
+        Calculates the total heat input from internal sources.
 
-    Args:
-    e: emmisivity
-    S: Stefan-Boltzmann constant
+        Returns:
+            The total heat input from electronics and motor [W].
+        """
 
-    Returns:
+        return self.heat_rate_electronics + self.heat_rate_motor
 
-    """
-    q_out = sigma * em_drone *(x**4 - temp_atm**4) * area_total
-    return q_out
+    def heat_rate_convection(self, temperature_drone):
+        """
+        Calculates the heat loss due to convection with the atmosphere.
+
+        Args:
+            temperature_drone: The current temperature of the drone [K].
+
+        Returns:
+            The heat loss due to convection [W].
+        """
+
+        heat_rate_conv = self.coefficient_convection * (temperature_drone - self.temperature_atmosphere) * self.area_total
+        return heat_rate_conv
+
+    def heat_rate_out(self, temperature_drone):
+        """
+        Calculates the heat loss due to radiation to the environment.
+
+        Args:
+            temperature_drone: The current temperature of the drone [K].
+
+        Returns:
+            The heat loss due to radiation [W].
+        """
+
+        heat_rate_out = self.stefan_boltzmann_constant * self.emissivity_drone * (temperature_drone**4 - self.temperature_atmosphere**4) * self.area_total
+        return heat_rate_out 
+
+    def heat_rate_balance(self, temperature_drone):
+        """
+        Calculates the balance equation to solve for the drone's temperature.
+
+        Args:
+            temperature_drone: The current temperature of the drone [K].
+
+        Returns:
+            The value of the balance equation [W] (should be zero at equilibrium).
+        """
+
+        heat_rate_ext, _ = self.heat_rate_external_input(temperature_drone)
+        heat_rate_int = self.heat_rate_internal_input()
+        heat_rate_conv = self.heat_rate_convection(temperature_drone)
+        heat_rate_out = self.heat_rate_out(temperature_drone)
+        return heat_rate_ext + heat_rate_int - heat_rate_conv - heat_rate_out
+
+    def solve_equilibrium_temperature(self):
+        """
+        Solves the heat balance equation to find the equilibrium temperature 
+        of the drone.
+
+        Returns:
+            The equilibrium temperature of the drone [K].
+        """
+
+        x = Symbol('x')
+        temperature_equilibrium_solutions = solve(self.heat_rate_balance(x), x)
+        return temperature_equilibrium_solutions[1]
 
 
-def heat_balance(x):
-    """
-    Calculate the balance temperature of the drone
+def main():
+    drone = MarsDroneHeatTransfer()
+    equilibrium_temp = drone.solve_equilibrium_temperature()
+    print(f"Equilibrium temperature of the drone: {equilibrium_temp}")
 
-    Returns:
-    T_drone
-    """
-    f = heat_external_input(x)[0] + heat_internal_input() - heat_convection(x) - heat_out(x)
-    return f
 
-x = Symbol('x')
-sol = solve(heat_balance(x),x)
-print(sol)
-
-# temp_rover = 331
-# q_ext_inp = heat_external_input(temp_rover)
-# q_int_inp = heat_internal_input()
-# q_conv = heat_convection(temp_rover) 
-# q_out = heat_out(temp_rover)
-# print(q_ext_inp, q_int_inp, q_conv, q_out)
-# print(heat_balance(temp_rover))
+if __name__ == "__main__":
+    main()
