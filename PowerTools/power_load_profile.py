@@ -64,7 +64,7 @@ power_usage_baseline = profile_power['thermal_avionics'] + profile_power['therma
 power_usage_takeoff = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_takeoff'] + profile_power['thermal_propulsion']
 power_usage_cruise = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_cruise'] + profile_power['thermal_propulsion']
 power_usage_scanning = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_scanning'] + profile_power['thermal_propulsion'] + profile_power['payload_scanning']
-power_usage_hover = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_hover'] + profile_power['thermal_propulsion']
+# power_usage_hover = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_hover'] + profile_power['thermal_propulsion']
 power_usage_landing = power_usage_baseline + profile_power['communication'] + profile_power['propulsive_landing'] + profile_power['thermal_propulsion']
 power_usage_collection = power_usage_baseline + profile_power['communication'] + profile_power['payload_collection'] + profile_power['thermal_propulsion']
 power_usage_cooling = power_usage_baseline + profile_power['communication'] + profile_power['thermal_propulsion']
@@ -182,7 +182,7 @@ print('max_power_2_day [W]', np.max(power_series_2_day))
 #Calculate mission energy
 # mission_energy_1_day = np.trapz(power_series_1_day, dx=1)
 mission_energy_2_day = np.trapz(power_series_2_day, dx=1)
-average_power = (mission_energy_2_day/2)/(time_mars_day)
+average_power = (mission_energy_2_day)/(2*time_mars_day)
 # print('mission_energy_1_day [J]', mission_energy_1_day)
 # print('mission_energy_1_day [Wh]', mission_energy_1_day/3600)
 print('mission_energy_2_day [J]', mission_energy_2_day)
