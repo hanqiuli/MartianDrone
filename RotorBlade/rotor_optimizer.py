@@ -8,7 +8,7 @@ number_of_blades = 4
 radial_stations = [0.08, 0.25, 0.75, 1.00]
 airfoils = ['Diamond', 'Triangle', 'DEP 0.5', 'DEP 0.7']
 rotor_radius = 1.2
-maximum_angle_of_attack = 10
+maximum_alpha = 10
 ######################################
 
 optimal_pitch_params_list = []
@@ -29,8 +29,8 @@ def objective(params):
                 airfoil_name_stations= airfoils)
     calculate_blade_properties(blade)
 
-    # print(np.rad2deg(blade.angle_of_attack))
-    # obj = (np.multiply(blade.lift_slope,blade.angle_of_attack))/blade.drag_coefficient
+    # print(np.rad2deg(blade.alpha))
+    # obj = (np.multiply(blade.lift_slope,blade.alpha))/blade.drag_coefficient
 
     return -blade.thrust_coefficient_rotor
 
@@ -63,7 +63,7 @@ def constraint(params):
             reynolds_constraints.append(max_reynolds_intermediate - min(max_reynolds_intermediate, max(max_reynolds_first, min(blade.reynolds[i], max_reynolds_last))))
 
     return [0.12 - (blade.thrust_coefficient_rotor / blade.solidity_rotor), 
-            maximum_angle_of_attack - np.rad2deg(blade.angle_of_attack), 2.5 - np.max(chord_params)/chord_params[0], reynolds_constraints, 0.25 - blade.solidity_rotor,
+            maximum_alpha - np.rad2deg(blade.alpha), 2.5 - np.max(chord_params)/chord_params[0], reynolds_constraints, 0.25 - blade.solidity_rotor,
             pitch_params[0] - pitch_params[1], chord_params[2] - chord_params[3], chord_params[1] - chord_params[2]]
 
 initial_guess = np.concatenate([
