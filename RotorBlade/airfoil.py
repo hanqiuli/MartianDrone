@@ -34,25 +34,8 @@ class Airfoil:
         self.alphas = airfoils[self.name]['alpha']
         self.cls = airfoils[self.name]['cl']
         self.cds = airfoils[self.name]['cd']
-
-    def interpolate_cl_cd(self):
-        """Interpolates the lift and drag coefficients of the airfoil at a given angle of attack.
-        Args:
-            alpha: The angle of attack. [deg]
-        Returns:
-            cl, cd: The lift and drag coefficients of the airfoil. [-, -]
-        """
-        self.alpha = np.linspace(self.alphas[0], self.alphas[-1], 1000)
-        self.cl = np.interp(self.alpha, self.alphas, self.cls)
-        self.cd = np.interp(self.alpha, self.alphas, self.cds)
     
 if __name__ == '__main__':
     airfoil = Airfoil('Diamond')
-    airfoil.interpolate_cl_cd()
-    plt.plot(airfoil.alpha, airfoil.cl, label='Lift Coefficient')
-    plt.xlabel('Angle of Attack [deg]')
-    plt.ylabel('Lift Coefficient [-]')
-    plt.legend()
-    plt.minorticks_on()
-    plt.grid(which='both')
-    
+    print(f'{airfoil.name = }')
+    print(f'{airfoil.alphas = }')    
