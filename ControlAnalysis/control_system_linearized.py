@@ -1,18 +1,13 @@
-import sys
-
+import numpy as np
 import control as ct
 import matplotlib.pyplot as plt
-import numpy as np
-
-sys.path.append('.')
-from legacy.DesignTools.environment_properties import ENV as ENVdict
 
 class DroneSystem:
     """
     This class defines the nonlinear dynamics of a drone system, taken from the sketchy paper.
     """
 
-    def __init__(self, mass, moment_inertia, moment_inertia_prop, torque_thrust_ratio, omega_thrust_ratio, *, ENV=ENVdict, arm_length=2):
+    def __init__(self, mass, moment_inertia, moment_inertia_prop, torque_thrust_ratio, omega_thrust_ratio, *, ENV=None, arm_length=2):
         """
         Class initializer
 
@@ -27,7 +22,6 @@ class DroneSystem:
             ENV                 [N/A]           dict        dictionary containing the environmental properties
             arm_length          [m]             float       length of the arm of the drone
         """
-
         self.mass = mass
         self.moment_inertia = moment_inertia
         self.moment_inertia_prop = moment_inertia_prop
@@ -51,29 +45,26 @@ class DroneSystem:
 
         # Define the state space matrices
         A = np.zeros((12, 12))
-        A[9:12, 0:3] = np.eye(3)
-        A[6:9, 3:6] = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]])
+        A[0:3, 6:9] = np.eye(3)  # position to velocity
+        A[3:6, 9:12] = np.eye(3)  # orientation to angular velocity
         
-        # This B is using inputs: T, Mx, My, Mz
         B_orig = np.zeros((12, 4))
-        B_orig[0, 3] = -1/self.mass
-        B_orig[3:6, 1:4] = np.array([[1/Jx, 0, 0],[0, 1/Jy, 0],[0, 0, 1/Jz]])
+        B_orig[6:9, 0] = np.array([0, 0, 1/self.mass])  # force input to linear acceleration
+        B_orig[9:12, 1:4] = np.diag([1/Jx, 1/Jy, 1/Jz])  # torques to angular acceleration
 
-        # We need to convert the inputs to the propeller speeds
-        # This is the conversion matrix
+        # This is the transformation matrix for a hexa-copter
+        # transformation_matrix = np.array([
+        #     [1, 1, 1, 1, 1, 1],
+        #     [0, -L*np.sqrt(3)/2, -L*np.sqrt(3)/2, 0, L*np.sqrt(3)/2, L*np.sqrt(3)/2],
+        #     [-L, -L/2, L/2, L, L/2, -L/2],
+        #     [-k_MT, k_MT, -k_MT, k_MT, -k_MT, k_MT]
+        # ])
 
-        transformation_matrix = np.array([
-            [1,     1,                   1,                 1,      1,              1],
-            [0,     -L*np.sqrt(3)/2,    -L*np.sqrt(3)/2,    0,      L*np.sqrt(3)/2, L*np.sqrt(3)/2],
-            [L,     0.5*L,              -0.5*L,             -L,     -0.5*L,         0.5*L],
-            [-k_MT, k_MT,               -k_MT,              k_MT,   -k_MT,          k_MT]
-        ])
-
-        B = np.dot(B_orig, transformation_matrix)
+        B = B_orig
 
         C = np.eye(12)
 
-        D = np.zeros((12, 6))
+        D = np.zeros((12, 4))
 
         # Create the state space representation
         sys = ct.StateSpace(A, B, C, D)
@@ -81,7 +72,54 @@ class DroneSystem:
         self.linear_system = sys
 
         return sys
-    
+
+    def design_pd_controller(self, omega_n=1, zeta=0.5):
+        """
+        This function designs a PD controller for the hexa-copter system.
+
+        Positional arguments:
+            omega_n     [rad/s]     float       natural frequency of the closed-loop system
+            zeta        [-]         float       damping ratio of the closed-loop system
+
+        Returns:
+            Kp, Kd      [N/A]       float       proportional and derivative gains of the PD controller
+        """
+        Kp = omega_n**2
+        Kd = 2*zeta*omega_n
+        return Kp, Kd
+
+    def simulate(self, t, r):
+        """
+        This function simulates the response of the hexa-copter system to a given reference input.
+
+        Positional arguments:
+            t       [s]     array-like       time vector
+            r       [m]     array-like       reference input
+
+        Returns:
+            y       [m]     array-like       system response
+        """
+        # Implement the control law
+        Kp, Kd = self.design_pd_controller()
+
+        # Creating separate PD controllers for each axis
+        pd_controllers = []
+        for i in range(6):
+            A_controller = np.array([[0, 1], [0, 0]])
+            B_controller = np.array([[0], [1]])
+            C_controller = np.array([[Kp, Kd]])
+            D_controller = np.array([[0]])
+            pd_controllers.append(ct.StateSpace(A_controller, B_controller, C_controller, D_controller))
+
+        # Connecting PD controllers in feedback with the system
+        sys_closed_loop = self.linear_system
+        for pd_controller in pd_controllers:
+            sys_closed_loop = ct.feedback(sys_closed_loop, pd_controller, sign=-1)
+
+        # Simulate the system response
+        t_out, y_out, x_out = ct.forced_response(sys_closed_loop, T=t, U=r)
+
+        return t_out, y_out
 
 if __name__ == "__main__":
     # Define the drone system parameters
@@ -100,26 +138,20 @@ if __name__ == "__main__":
     # Print the state space representation
     print(sys)
 
-    # Simulate the system
-
-    # Define the time vector
+    # Define the simulation parameters
     t = np.linspace(0, 10, 1000)
+    r = np.ones((6, len(t)))  # step input for 6 inputs
 
-    # Define the input vector
-    u = np.ones((6, t.size)) * 10
+    # Simulate the system response
+    t_out, y_out = drone.simulate(t, r)
 
-    # Define the initial state vector
-    x0 = np.zeros(12)
-
-    # Simulate the system
-    t, y = ct.forced_response(sys, t, u, x0)
-
-    # Plot the results
-    plt.plot(t, y[9], label='x')
-    plt.plot(t, y[10], label='y')
-    plt.plot(t, y[11], label='z')
+    # Plot the system response
+    plt.figure()
+    for i in range(y_out.shape[0]):
+        plt.plot(t_out, y_out[i, :], label=f'State {i+1}')
     plt.xlabel('Time [s]')
-    plt.ylabel('Position [m]')
+    plt.ylabel('Response')
+    plt.title('Hexa-copter System Response')
     plt.legend()
-    plt.grid()
+    plt.grid(True)
     plt.show()

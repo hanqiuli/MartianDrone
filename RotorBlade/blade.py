@@ -6,10 +6,17 @@ Provides a class that calculates the performance of a rotor blade in hover.
     - The thrust of the rotor is calculated based on the thrust coefficient and the speed of the rotor tip.
 """
 import numpy as np
-from scipy import integrate
+from scipy import integrate, interpolate
+from airfoil import Airfoil
 
 class Blade:
-    def __init__(self, radius_rotor: float, num_blades: int, radial_nondim_stations: list[float], chord_nondim_stations: list[float]):
+    def __init__(self, 
+                 radius_rotor: float,
+                 num_blades: int, 
+                 radial_nondim_stations: list[float], 
+                 chord_nondim_stations: list[float], 
+                 pitch_params: list[float], 
+                 airfoil_name_stations: list[str]) -> None:
         """Initializes:
             radial, radial_nondim: The radial position over the rotor blade. [m, -]
             chord, chord_nondim: The chord distribution over the rotor blade. [m, -]
@@ -26,17 +33,29 @@ class Blade:
             num_blades: The number of blades per rotor disk. [-]
             radial_nondim_stations: The nondimensional radial stations where the chord is specified. [-]
             chord_nondim_stations: The nondimensional chord at the specified radial stations. [-]
+            pitch_params: The quadratic pitch distribution parameters [root pitch, tip pitch, root pitch slope]. [rad, rad, rad/m]
         """
+        if not (0 <= radial_nondim_stations[0] < radial_nondim_stations[-1] <= 1) or radial_nondim_stations != sorted(radial_nondim_stations):
+            raise ValueError("Radial nondimensional stations must be between 0 and 1 and in ascending order.")
+        if len(radial_nondim_stations) != len(chord_nondim_stations):
+            raise ValueError("Radial and chord nondimensional stations must have the same length.")
+        if len(pitch_params) != 3:
+            raise ValueError("Pitch parameters must be a float list in the form [root pitch, tip pitch, root pitch slope].")
+        if len(airfoil_name_stations) != len(radial_nondim_stations):
+            raise ValueError("Airfoil name stations must have the same length as the radial nondimensional stations.")
+        
         self.radius_rotor = radius_rotor
         self.num_blades = num_blades
-        self.lift_slope = 2 * np.pi
-        self.radial_nondim = np.linspace(radial_nondim_stations[0], radial_nondim_stations[-1], 10000)
-        self.chord_nondim = np.interp(self.radial_nondim, radial_nondim_stations, chord_nondim_stations)
+        self.radial_nondim_stations = radial_nondim_stations
+        self.chord_nondim_stations = chord_nondim_stations
+        self.radial_nondim = np.linspace(self.radial_nondim_stations[0], self.radial_nondim_stations[-1], 1000)
+        self.chord_nondim = np.interp(self.radial_nondim, self.radial_nondim_stations, self.chord_nondim_stations)
         self.radial = self.radial_nondim * self.radius_rotor
         self.chord = self.chord_nondim * self.radius_rotor
         self.leading_edge = 0.25 * self.chord_nondim
         self.trailing_edge = -0.75 * self.chord_nondim
         self.solidity = self.num_blades * self.chord_nondim / np.pi
+        self.pitch_params = pitch_params
 
         self.chord_mean = np.trapz(self.chord, self.radial_nondim)
         self.aspect_ratio = self.radius_rotor / self.chord_mean
@@ -45,56 +64,74 @@ class Blade:
         self.area_rotor = np.pi * self.radius_rotor**2
         self.solidity_rotor = self.area_blades / self.area_rotor
 
-    def calculate_pitch(self, pitch_root: float, twist: float, pitch_tip: float, reverse_pitch = True):
-        """Calculates:
-            pitch: The pitch angle distribution over the rotor blade. [rad]
-        Args:
-            pitch_root: The pitch angle at the root of the rotor blade. [deg]
-            twist: The twist of the rotor blade. [deg/m]
-            pitch_tip: The pitch angle at the tip of the rotor blade. [deg]
-            reverse_pitch: True for linear increasing pitch, False for inverse decreasing pitch. [bool]
-        """
-        if reverse_pitch:
-            self.pitch = pitch_tip / self.radial_nondim
-        else:
-            self.pitch = pitch_root + twist * self.radial_nondim
-        self.pitch = np.deg2rad(self.pitch)
+        self.airfoil_stations = [Airfoil(name) for name in airfoil_name_stations]
 
-    def calculate_inflow(self):
-        """Calculates_
-            inflow: The inflow distribution over the rotor blade. [m/s]
-            inflow_angle: The inflow angle distribution over the rotor blade. [rad]
+    def calculate_pitch(self):
+        """Calculates:
+            pitch: The pitch distribution over the rotor blade. [rad]
+        """
+        theta_root = self.pitch_params[0]
+        theta_tip = self.pitch_params[1]
+        theta_slope_root = self.pitch_params[2]
+        a0 = theta_root
+        a1 = theta_slope_root
+        a2 = (theta_tip - theta_root - theta_slope_root*(1 - self.radial_nondim[0])) / (1 - self.radial_nondim[0])**2
+        quadratic_params = [a2, a1, a0]
+        self.pitch = np.polyval(quadratic_params, self.radial_nondim - self.radial_nondim[0])
+
+    def interpolate_airfoil_params(self):
+        """Provides a lookup table for the lift slope of the airfoil at a given angle of attack, and interpolates the array of lift slopes over the rotor blade.
+        """
+        self.lift_slope_stations = []
+        self.delta_0_stations = []
+        self.delta_1_stations = []
+        self.delta_2_stations = []
+        for airfoil in self.airfoil_stations:
+            self.lift_slope_stations.append(airfoil.lift_slope)
+            self.delta_0_stations.append(airfoil.delta_0)
+            self.delta_1_stations.append(airfoil.delta_1)
+            self.delta_2_stations.append(airfoil.delta_2)
+        self.lift_slope = interpolate.interp1d(self.radial_nondim_stations, self.lift_slope_stations, axis=0, fill_value='extrapolate')(self.radial_nondim)
+        self.delta_0 = interpolate.interp1d(self.radial_nondim_stations, self.delta_0_stations, axis=0, fill_value='extrapolate')(self.radial_nondim)
+        self.delta_1 = interpolate.interp1d(self.radial_nondim_stations, self.delta_1_stations, axis=0, fill_value='extrapolate')(self.radial_nondim)
+        self.delta_2 = interpolate.interp1d(self.radial_nondim_stations, self.delta_2_stations, axis=0, fill_value='extrapolate')(self.radial_nondim)
+
+    def calculate_inflow_angle_of_attack(self):
+        """Calculates:
+            angle_of_attack: The angle of attack distribution over the rotor blade. [deg]
+            inflow: The inflow distribution over the rotor blade. [-]
         """
         self.inflow = self.solidity * self.lift_slope / 16 * (np.sqrt(1 + 32 * self.pitch * self.radial_nondim / (self.solidity * self.lift_slope)) - 1)
         self.inflow_angle = self.inflow / self.radial_nondim
-
-    def calculate_angle_of_attack(self):
-        """Calculates:
-            angle_of_attack: The angle of attack distribution over the rotor blade. [rad]
-        """
-        self.angle_of_attack = self.pitch - self.inflow / self.radial_nondim
+        self.angle_of_attack = self.pitch - self.inflow_angle
 
     def calculate_thrust_coefficient(self):
         """Calculates:
             thrust_slope: The thrust slope distribution over the rotor blade. [-]
             thrust_coefficient: The thrust coefficient distribution over the rotor blade. [-]
-            thrust_coefficient_blade: The thrust coefficient of the rotor blade. [-]
-            thrust_coefficient_rotor: The thrust coefficient of the rotor disk. [-]
+            thrust_coefficient_rotor: The thrust coefficient of the rotor. [-]
         """
-        self.thrust_slope = self.solidity * self.lift_slope / 2 * (self.pitch * self.radial_nondim**2 - self.inflow * self.radial_nondim)
+        self.thrust_slope = self.solidity / 2 * self.lift_slope * self.angle_of_attack * self.radial_nondim ** 2
         self.thrust_coefficient = integrate.cumtrapz(self.thrust_slope, self.radial_nondim, initial=0)
-        self.thrust_coefficient_blade = np.trapz(self.thrust_slope, self.radial_nondim)
-        self.thrust_coefficient_rotor = self.thrust_coefficient_blade * self.num_blades
+        self.thrust_coefficient_rotor = np.trapz(self.thrust_slope, self.radial_nondim)
 
-    def calculate_power_coefficient(self):
+    def calculate_induced_power_coefficient(self):
         """Calculates:
             power_induced_coefficient: The induced power coefficient distribution over the rotor blade. [-]
-            power_induced_coefficient_blade: The induced power coefficient of the rotor blade. [-]
-            power_induced_coefficient_rotor: The induced power coefficient of the rotor disk. [-]
+            power_induced_coefficient_rotor: The induced power coefficient of the rotor. [-]
         """
         self.power_induced_coefficient = integrate.cumtrapz(self.inflow * self.thrust_slope, self.radial_nondim, initial=0)
-        self.power_induced_coefficient_blade = np.trapz(self.inflow * self.thrust_slope, self.radial_nondim)
-        self.power_induced_coefficient_rotor = self.power_induced_coefficient_blade * self.num_blades
+        self.power_induced_coefficient_rotor = np.trapz(self.inflow * self.thrust_slope, self.radial_nondim)
+
+    def calculate_profile_power_coefficient(self):
+        """Calculates:
+            drag_coefficient: The drag coefficient distribution over the rotor blade. [-]
+            power_profile_coefficient: The profile power coefficient distribution over the rotor blade. [-]
+            power_profile_coefficient_rotor: The profile power coefficient of the rotor. [-]
+        """
+        self.drag_coefficient = self.delta_0 + self.delta_1 * self.angle_of_attack + self.delta_2 * self.angle_of_attack**2
+        self.power_profile_coefficient = integrate.cumtrapz(self.solidity * self.drag_coefficient / 2 * self.radial_nondim**3, self.radial_nondim, initial=0)
+        self.power_profile_coefficient_rotor = np.trapz(self.solidity * self.drag_coefficient / 2 * self.radial_nondim**3, self.radial_nondim)
 
     def calculate_thrust_and_power(self, density_air: float):
         """Calculates:
@@ -105,6 +142,8 @@ class Blade:
         """
         self.thrust_rotor = self.thrust_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**2
         self.power_induced_rotor = self.power_induced_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**3
+        self.power_profile_rotor = self.power_profile_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**3
+        self.power_rotor = self.power_induced_rotor + self.power_profile_rotor
 
     def calculate_reynolds(self, gamma_air: float, gas_constant_air: float, temp_air: float, density_air: float, viscosity_air: float, mach_tip: float):
         """Calculates:
@@ -123,3 +162,6 @@ class Blade:
         self.speed_tip = mach_tip * speed_sound
         self.speed = self.speed_tip * self.radial_nondim
         self.reynolds = density_air * self.speed * self.chord / viscosity_air
+
+
+
