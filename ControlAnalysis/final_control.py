@@ -34,14 +34,35 @@ class PIDController:
         derivative = (error - self.previous_error) / dt
         self.previous_error = error
 
-        # Clipped return
-        if self.type == 'altitude':
-            return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.25, 0.25) #TODO: proper clipping here
-        elif self.type == 'attitude':
-            return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.25, 0.25) #TODO: proper clipping here
-        else:
-            return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+        # # Clipped return
+        # if self.type == 'altitude':
+        #     return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.25, 0.25) #TODO: proper clipping here
+        # elif self.type == 'attitude':
+        #     return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.25, 0.25) #TODO: proper clipping here
+        # else:
+        return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
 
+
+class MotorResponse:
+    def __init__(self, time_constant):
+        """
+        Initialize the FirstOrderLag class.
+
+        :param time_constant: The time constant of the first-order lag.
+        :param dt: The timestep for the simulation.
+        """
+        self.time_constant = time_constant
+        self.output = 0.0  # Initial output value
+
+    def get_actual_torque(self, input_torque, dt):
+        """
+        Update the output based on the input signal.
+
+        :param input_torque: The current input signal value.
+        :return: The updated output signal value.
+        """
+        self.output += (dt / self.time_constant) * (input_torque - self.output)
+        return self.output
 
 class HexacopterModel:
     """
@@ -79,15 +100,17 @@ class HexacopterModel:
         self.estimated_moment_inertia = np.max(moment_inertia*(1+mass_skew_factor))
 
         self.setup_pids(pid_params)
+        self.setup_motor_responses(0.15)
 
-        self.transformation_matrix = np.array([
-            [-1, -1, -1, -1, -1, -1],
-            [0, -arm_length * np.sqrt(3) / 2, -arm_length * np.sqrt(3) / 2, 0, arm_length * np.sqrt(3) / 2,
-             arm_length * np.sqrt(3) / 2],
-            [arm_length, 0.5 * arm_length, -0.5 * arm_length, -arm_length, -0.5 * arm_length, 0.5 * arm_length],
+        self.thrust_map = np.array([
+            [1, 1, 1, 1, 1, 1],
+            [-arm_length/2, -arm_length, -arm_length/2, arm_length/2, arm_length, arm_length/2],
+            [-arm_length*np.sqrt(3)/2, 0, arm_length*np.sqrt(3)/2, arm_length*np.sqrt(3)/2, 0, -arm_length*np.sqrt(3)/2],
             [-torque_thrust_ratio, torque_thrust_ratio, -torque_thrust_ratio, torque_thrust_ratio,
              -torque_thrust_ratio, torque_thrust_ratio]
         ])
+
+        self.inverted_thrust_map = np.linalg.pinv(self.thrust_map)
 
         self.input_type_list = ['altitude', 'attitude', 'attitude', 'attitude']  
 
@@ -101,10 +124,7 @@ class HexacopterModel:
             print(f'Warning: there are {len(unassigned_inputs)} too many control inputs specified in the dynamics system call')
 
         J = self.moment_inertia
-        J_mp = self.moment_inertia_prop
         m = self.mass
-        K_MT = self.torque_thrust_ratio
-        K_omegaT = self.omega_thrust_ratio
         g = self.environment['g']
 
 
@@ -140,19 +160,19 @@ class HexacopterModel:
         self.pid_control_to_input_map = [0, 1, 2, 3]
         self.input_to_pid_control_map = [0, 1, 2, 3]
 
-    def clip_inputs(self, inputs, thrust_range=[-0.5, 0.5], moment_range=[-1, 1]):
-        #TODO have function to map these to thrusters and clip these while retaining relative moments
-        for i, input_type in enumerate(self.input_type_list):
-            if 'thruster' == input_type:
-                inputs[i] = np.clip(inputs[i], thrust_range[0], thrust_range[1])
-            elif 'altitude' == input_type:
-                inputs[i] = np.clip(inputs[i], thrust_range[0], thrust_range[1])
-            elif 'attitude' == input_type:
-                inputs[i] = np.clip(inputs[i], moment_range[0], moment_range[1])
-            else:
-                raise ValueError('Undefined input type in input type list')
-
-        return inputs
+    def setup_motor_responses(self, time_constant):
+        self.motor_response_list = [
+            MotorResponse(time_constant),
+            MotorResponse(time_constant),
+            MotorResponse(time_constant),
+            MotorResponse(time_constant),
+            MotorResponse(time_constant),
+            MotorResponse(time_constant)
+        ]
+        
+    def clip_thrusters(self, thruster_inputs, thrust_range):
+        dimensionalized_thrust_range = [thrust_limit*self.estimated_mass*self.environment['g']/6 for thrust_limit in thrust_range]
+        return np.clip(thruster_inputs, *dimensionalized_thrust_range)
 
     def mod_inputs(self, inputs):
         # M = pid * J * g / L
@@ -169,9 +189,8 @@ class HexacopterModel:
                 raise ValueError('Undefined input type in input type list')
         
         return inputs
-            
 
-    def get_control(self, state, set_point, dt, *, thrust_range=[-0.5, 0.5], moment_range=[-1, 1]):
+    def get_control(self, state, set_point, dt, *, thrust_range=[0, 1.5]):
         inputs = [0]*len(self.pid_control_to_input_map)
 
         for i, pid in enumerate(self.pid_list_control):
@@ -180,10 +199,14 @@ class HexacopterModel:
 
             input_id = self.pid_control_to_input_map[i]
             inputs[input_id] = pid.update(state[state_id], dt)
-
-        inputs = self.clip_inputs(inputs, thrust_range=thrust_range, moment_range=moment_range)
-        inputs = self.mod_inputs(inputs)
         
+        inputs = self.mod_inputs(inputs) 
+        thruster_inputs = self.inverted_thrust_map @ np.array(inputs)
+        thruster_inputs = self.clip_thrusters(thruster_inputs, thrust_range)
+        for i, motor_response in enumerate(self.motor_response_list):
+            thruster_inputs[i] = motor_response.get_actual_torque(thruster_inputs[i], dt)
+        inputs = self.thrust_map @ thruster_inputs
+
         return inputs
     
     def simulate(self, times, initial_state, setpoints):
@@ -194,17 +217,20 @@ class HexacopterModel:
         initial_state: array-like - initial state of the hexacopter [x, y, z, phi, theta, psi, x_dot, y_dot, z_dot, p, q, r]
         setpoints: array-like - setpoints for the simulation [z, phi, theta, psi], this should be the same length as max_time/time_step
         """
+        
         desired_x, desired_y, desired_z, desired_phi, desired_theta, desired_psi, desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r = setpoints
         time_step = times[1] - times[0]
         states = [initial_state]
+        thruster_values = []
         for i in range(1, len(times)):
             current_state = states[-1]
             inputs = self.get_control(current_state, [desired_x[i], desired_y[i], desired_z[i], desired_phi[i], desired_theta[i], desired_psi[i], desired_xdot[i], desired_ydot[i], desired_zdot[i], desired_p[i], desired_q[i], desired_r[i]], time_step)
             inputs = tuple([inputs],)
             new_state = odeint(self.hexacopter_dynamics, current_state, [0, time_step], args=inputs)[-1]
             states.append(new_state)
+            thruster_values.append(self.inverted_thrust_map @ np.array(inputs[0]))
         
-        return np.array(states), times
+        return np.array(states), times, thruster_values
     
     @staticmethod
     def plot_figures(states, times, setpoints):
@@ -253,9 +279,9 @@ class HexacopterModel:
 if __name__ == "__main__":
     
     mass = 60.0
-    moment_inertia = np.diag([5, 5, 5])
+    moment_inertia = np.diag([5, 5, 8])
     moment_inertia_prop = 0.01
-    pid_params = [[12, 0.5, 12, 3], [5, 0.2, 3, 10], [5, 0.2, 3, 10], [5, 0.2, 3, 10]]
+    pid_params = [[30, 0.5, 17, 3], [5, 0.2, 3, 10], [5, 0.2, 3, 10], [5, 0.2, 3, 10]]
     torque_thrust_ratio = 0.1
     omega_thrust_ratio = 0.1
     ENV = ENVdict
@@ -265,21 +291,26 @@ if __name__ == "__main__":
     t = np.linspace(0, 50, 10000)
     initial_state = np.zeros(12)
     # initial altitude is nonzero
-    initial_state[2] = 50 
+    initial_state[2] = 0
 
-    # desired_z = np.zeros_like(t)
-    # desired_z[t <= 5] = np.linspace(0, 20, len(t[t <= 5]))
-    # desired_z[(t > 5) & (t <= 10)] = 20
-    # desired_z[(t > 10) & (t <= 20)] = 30
-    # desired_z[(t > 20) & (t <= 30)] = 10
-    # desired_z[(t > 30) & (t <= 32)] = 20
-    # desired_z[t > 32] = 20
+    
 
     desired_x = np.zeros_like(t)
     desired_y = np.zeros_like(t)
-    desired_z = np.ones_like(t) * 50 # should hover
+    # desired_z = np.ones_like(t) * 50 # should hover
+
+    desired_z = np.zeros_like(t)
+    desired_z[t <= 5] = np.linspace(0, 20, len(t[t <= 5]))
+    desired_z[(t > 5) & (t <= 10)] = 20
+    desired_z[(t > 10) & (t <= 20)] = 30
+    desired_z[(t > 20) & (t <= 30)] = 10
+    desired_z[(t > 30) & (t <= 32)] = 20
+    desired_z[t > 32] = 20
+
     desired_phi = np.sin(t/2)/10
-    desired_theta = np.zeros_like(t)
+    desired_phi = np.zeros_like(t)
+    desired_theta = np.ones_like(t) * 0.05
+    # desired_theta = np.sin(t/2 + np.pi/2)/10
     desired_psi = np.zeros_like(t)
     desired_xdot = np.zeros_like(t)
     desired_ydot = np.zeros_like(t)
@@ -290,24 +321,12 @@ if __name__ == "__main__":
     
     desired_states = [desired_x, desired_y, desired_z, desired_phi, desired_theta, desired_psi, desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r]
 
-    # desired_states = [
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     # z, phi, theta, psi
-    #     desired_z,
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     np.zeros_like(t),
-    #     np.zeros_like(t)
-    # ]
 
-    states, times = hexacopter.simulate(t, initial_state, desired_states)
+    states, times, thruster_values = hexacopter.simulate(t, initial_state, desired_states)
     hexacopter.plot_figures(states, times, desired_states)
+    # plt.plot(times[:-1], thruster_values)
+    # plt.legend(['1', '2', '3', '4', '5', '6'])
+    # plt.show()
 
 
     
