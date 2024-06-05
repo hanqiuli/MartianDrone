@@ -45,12 +45,14 @@ class Blade:
         if len(airfoil_name_stations) != len(radial_nondim_stations):
             raise ValueError("Airfoil name stations must have the same length as the radial nondimensional stations.")
         
+        self.num_radial_elements = 100
+        self.num_alpha_elements = 1000
         self.radius_rotor = radius_rotor
         self.num_blades = num_blades
         self.radial_nondim_stations = radial_nondim_stations
         self.chord_nondim_stations = chord_nondim_stations
         self.airfoil_stations = [Airfoil(name) for name in airfoil_name_stations]
-        self.radial_nondim = np.linspace(self.radial_nondim_stations[0], self.radial_nondim_stations[-1], 1000)
+        self.radial_nondim = np.linspace(self.radial_nondim_stations[0], self.radial_nondim_stations[-1], self.num_radial_elements)
         self.chord_nondim = np.interp(self.radial_nondim, self.radial_nondim_stations, self.chord_nondim_stations)
         self.radial = self.radial_nondim * self.radius_rotor
         self.chord = self.chord_nondim * self.radius_rotor
@@ -90,13 +92,12 @@ class Blade:
         self.cls_stations = np.array(self.cls_stations)
         self.cds_stations = np.array(self.cds_stations)
         alphas_stations = np.linspace(0.0, 10.0, 11)
-        alphas = np.linspace(0.0, 10.0, 1000)
-        self.cls = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cls_stations, kx=1, ky=3)(self.radial_nondim, alphas)
-        self.cds = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cds_stations, kx=1, ky=3)(self.radial_nondim, alphas)
+        alphas = np.linspace(0.0, 10.0, self.num_alpha_elements)
+        self.cls = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cls_stations, kx=1, ky=1)(self.radial_nondim, alphas)
+        self.cds = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cds_stations, kx=1, ky=1)(self.radial_nondim, alphas)
         self.cls = np.array(self.cls)
         self.cds = np.array(self.cds)
         cl0 = self.cls[:,0]
-        cd0 = self.cds[:,0]
         clinv = 2 * cl0[:,None] - np.flip(self.cls, axis=1)
         cdinv = np.flip(self.cds, axis=1)
         self.cls = np.concatenate((clinv[:,:-1], self.cls), axis=1)
@@ -119,7 +120,7 @@ class Blade:
         theta = self.pitch[:, np.newaxis]
         sigma = self.solidity[:, np.newaxis]
         # insane magic
-        alpha = np.deg2rad(np.linspace(-10.0, 10.0, 1999))
+        alpha = np.deg2rad(np.linspace(-10.0, 10.0, 2*self.num_alpha_elements-1))
         constraint = 8 * r * (theta - alpha)**2 / sigma
         cls_constrained = self.cls - constraint
         alpha_index = np.argmin(np.abs(cls_constrained), axis=1)
