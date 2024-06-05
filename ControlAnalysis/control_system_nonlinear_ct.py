@@ -1,5 +1,6 @@
 '''Nonlinear variant of the control system'''
 import sys
+import random
 
 import control as ctrl
 import matplotlib.pyplot as plt
@@ -7,6 +8,10 @@ import numpy as np
 
 sys.path.append('.')
 from legacy.DesignTools.environment_properties import ENV as ENVdict
+
+
+def RMSdiff(a, b):
+    return np.sqrt(np.sum((a-b)**2/b))
 
 class PIDController(ctrl.NonlinearIOSystem):
     """
@@ -31,6 +36,7 @@ class PIDController(ctrl.NonlinearIOSystem):
         e = u[0] - u[1]  # Error signal
         u_pid = self.Kp * e + self.Ki * x[0] + self.Kd * (e - x[1]) + self.Kii * x[2]
         return np.clip(u_pid, self.min_output, self.max_output)
+
 
 class DroneSystem:
     """
@@ -180,13 +186,9 @@ class DroneSystem:
         input_list = ['pid_height.u[0]', 'pid_roll.u[0]', 'pid_pitch.u[0]', 'pid_yaw.u[0]']
         output_list = ['drone_system.y[11]', 'drone_system.y[6]', 'drone_system.y[7]', 'drone_system.y[8]']
         closed_sys = ctrl.interconnect([drone_system, pid_controller_height, pid_controller_roll, pid_controller_pitch, pid_controller_yaw], connections, input_list, output_list)
-        
-        print(closed_sys)
 
         return closed_sys
-        
-
-    
+   
 
 if __name__ == "__main__":
     # Define the drone parameters
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     setpoint_yaw = np.zeros_like(time)
     setpoint_height = np.ones_like(time) * 50
 
-    # # Stack the setpoint signals
+        # # Stack the setpoint signals
     setpoints = np.vstack((setpoint_height, setpoint_roll, setpoint_pitch, setpoint_yaw))
 
     # Create the closed-loop system
@@ -229,7 +231,21 @@ if __name__ == "__main__":
     X0[11] = -50
 
     # Simulate the response of the closed-loop system
-    time, response = ctrl.input_output_response(closed_loop_system, time, setpoints, X0=X0)
+    try:
+        time, response = ctrl.input_output_response(closed_loop_system, time, setpoints, X0=X0)
+    except Exception as e:
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            print(i)
+            raise e
+        continue
+
+    rms = RMSdiff(response[0][75:], setpoint_height[75:])
+    if rms < bestRMS:
+        bestRMS = rms
+        print(rms)
+        print(gain_list)
+        print()
+        best_gain_list = gain_list
 
     # Plot the response of the closed-loop system
     plt.figure()
