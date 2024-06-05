@@ -11,7 +11,6 @@ import scipy as sp
 # Local imports
 # from environment_properties import ENV
 time_mars_day = 88775 #Average Martian day duration [sec]
-from solar_flux_analysis import get_avg_solar_flux
 from power_load_profile import get_average_power_mission
 from solar_flux_analysis import plot_solar_flux_daily
 
@@ -42,10 +41,10 @@ mission_lifetime = 2 #Duration of primary mission [years]
 battery_efficiency = 0.99#[%] need to get better numbers on this
 harness_loss = 0.02 #[%] need to get better numbers on this
 packing_factor = 0.9 #Square cells packing density https://sinovoltaics.com/learning-center/basics/packing-density/#:~:text=The%20solar%20cell's%20packing%20density,module's%20operating%20temperature%20as%20well.
-bus_voltage = 100 #Voltage of power generation bus[V]
+bus_voltage = 60 #Voltage of power generation bus[V]
 voltage_per_cell = 3.025 #Voltage at max power per cell
 cell_area = 30.18 #Cell surface area [cm^2]
-solar_array_density = 1.7 #Density of solar array [kg/m^2] Typical value, used by MSH, alligns with data from Sparkwing Solar Panel	and https://exoterracorp.com/products/power/ 
+solar_array_density = 2 #Density of solar array [kg/m^2] Typical value, used by MSH, alligns with data from Sparkwing Solar Panel	and https://exoterracorp.com/products/power/ 
 average_power_required = get_average_power_mission()
 print('required_average_power', average_power_required)
 
@@ -124,4 +123,74 @@ plt.show()
 #Assume dust will be mostly shaken off and take a 10% margin on available solar array area. https://ieeexplore.ieee.org/abstract/document/9843820 (they took 15% but we have much larger blades, more downwash)
 
 
-#Charge time analysis at BOL, EOL, summer, winter
+#Charge time analysis throughout the year assuming only baseline power systems are active. This will give us an idea whether our system will survive winter and if flying in winter is possible/at what frequency. Conversely, it will give us an idea of the possible flight frequency in summer.
+#innputs
+from solar_flux_analysis import get_avg_solar_flux
+baseline_power = 30
+energy_required_flight_Wh = 1740
+
+energy_required_flight= energy_required_flight_Wh*3600 #Energy required to charge battery for one flight [J]
+days, flux_yearly_profile = get_avg_solar_flux('Solar_Flux.txt')
+average_power_generation_yearly_profile_BOL = flux_yearly_profile * solar_cell_efficiency * array_reference_area * np.cos(np.radians(design_incidence_angle)) * (1-spectrum_shift_factor) * active_area_factor
+average_power_generation_yearly_profile_EOL = flux_yearly_profile * solar_cell_efficiency * array_reference_area * (1-radiation_degradation_rate)**mission_lifetime * np.cos(np.radians(design_incidence_angle)) * (1-spectrum_shift_factor) * active_area_factor
+baseline_power_consumption_profile = []
+for i in range(len(days)):
+    baseline_power_consumption_profile.append(baseline_power)
+net_power_generation_yearly_profile_BOL = average_power_generation_yearly_profile_BOL - baseline_power_consumption_profile
+net_power_generation_yearly_profile_EOL = average_power_generation_yearly_profile_EOL - baseline_power_consumption_profile
+charge_time_profile_BOL = energy_required_flight/net_power_generation_yearly_profile_BOL
+charge_time_profile_EOL = energy_required_flight/net_power_generation_yearly_profile_EOL
+plt.plot(days, charge_time_profile_BOL/3600)
+plt.plot(days, charge_time_profile_EOL/3600)
+plt.legend(['BOL', 'EOL'])
+plt.title('Charge time variation over a Martian year')
+plt.xlabel('Areocentric longitude [degrees]')
+plt.ylabel('Time to replenish energy required for one flight [hours]')
+plt.show()
+
+
+#Interpolate data to create a list of solar fluxes at every second
+data_points = charge_time_profile_BOL
+
+original_length = len(data_points)
+desired_length = 360
+
+original_indices = np.linspace(0, original_length - 1, original_length)
+desired_indices = np.linspace(0, original_length - 1, desired_length)
+
+interpolated_charge_time_profile_BOL = np.interp(desired_indices, original_indices, charge_time_profile_BOL)
+interpolated_charge_time_profile_EOL = np.interp(desired_indices, original_indices, charge_time_profile_EOL)
+
+#Calculate percentage of the year where charge time is below 1 martian day at BOL
+num_days_time_charge_less_1_mars_day_BOL = []
+num_days_time_charge_less_2_mars_day_BOL = []
+longer_charge_days_BOL = []
+for i in range(len(interpolated_charge_time_profile_BOL)):
+    if interpolated_charge_time_profile_BOL[i]<time_mars_day:
+        num_days_time_charge_less_1_mars_day_BOL.append(i)
+    elif interpolated_charge_time_profile_BOL[i]<2*time_mars_day:
+        num_days_time_charge_less_2_mars_day_BOL.append(i)
+    else: 
+        longer_charge_days_BOL.append(i)
+
+proportion_days_time_charge_less_1_mars_day_BOL = len(num_days_time_charge_less_1_mars_day_BOL)/len(interpolated_charge_time_profile_BOL)*100 #Percentage of days where charge time is less than 1 mars day[%]
+proportion_days_time_charge_less_2_mars_day_BOL = (len(num_days_time_charge_less_2_mars_day_BOL)+len(num_days_time_charge_less_1_mars_day_BOL))/len(interpolated_charge_time_profile_BOL)*100 #Percentage of days where charge time is less than 1 mars day[%]
+print('percentage of the year where we charge in less than 1 martian day at BOL', np.round(proportion_days_time_charge_less_1_mars_day_BOL))
+print('percentage of the year where we charge in less than 2 martian day at BOL', np.round(proportion_days_time_charge_less_2_mars_day_BOL))
+
+#Calculate percentage of the year where charge time is below 1 martian day at EOL
+num_days_time_charge_less_1_mars_day_EOL = []
+num_days_time_charge_less_2_mars_day_EOL = []
+longer_charge_days_EOL = []
+for i in range(len(interpolated_charge_time_profile_EOL)):
+    if interpolated_charge_time_profile_EOL[i]<time_mars_day:
+        num_days_time_charge_less_1_mars_day_EOL.append(i)
+    elif interpolated_charge_time_profile_EOL[i]<2*time_mars_day:
+        num_days_time_charge_less_2_mars_day_EOL.append(i)
+    else: 
+        longer_charge_days_EOL.append(i)
+
+proportion_days_time_charge_less_1_mars_day_EOL = len(num_days_time_charge_less_1_mars_day_EOL)/len(interpolated_charge_time_profile_EOL)*100 #Percentage of days where charge time is less than 1 mars day[%]
+proportion_days_time_charge_less_2_mars_day_EOL = (len(num_days_time_charge_less_2_mars_day_EOL)+len(num_days_time_charge_less_1_mars_day_EOL))/len(interpolated_charge_time_profile_EOL)*100 #Percentage of days where charge time is less than 1 mars day[%]
+print('percentage of the year where we charge in less than 1 martian day at EOL', np.round(proportion_days_time_charge_less_1_mars_day_EOL))
+print('percentage of the year where we charge in less than 2 martian day at EOL', np.round(proportion_days_time_charge_less_2_mars_day_EOL))

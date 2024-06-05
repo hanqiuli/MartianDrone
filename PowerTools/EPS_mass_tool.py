@@ -19,8 +19,8 @@ from cable_sizing import get_wires_mass
 mass_array = get_array_mass()
 mass_battery = get_battery_mass()
 mass_wires = get_wires_mass()
-mass_EPS_controller = 0
+mass_PCDU = 2 #Need to get this figured out
 
 #Total mass calculation
-mass_EPS = mass_array + mass_battery + mass_wires + mass_EPS_controller + mass_EPS_thermal_control
+mass_EPS = mass_array + mass_battery + mass_wires + mass_PCDU
 print(mass_EPS)

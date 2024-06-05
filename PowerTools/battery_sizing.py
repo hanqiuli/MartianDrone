@@ -18,8 +18,8 @@ power_generation_profile = get_power_generation_profile()
 power_usage_profile = get_power_usage_profile()
 battery_efficiency = 0.99 #Transmission efficiency between battery and load
 depth_of_discharge = 0.9 #90% DOD is acceptable for 1000 cycles https://www.researchgate.net/figure/Depth-of-discharge-versus-cycle-life-of-the-lithium-ion-battery_fig4_318292540
-EOL_capacity_factor = 0.9 #90% of capacity available after 500 cycles
-harness_loss = 0.02
+EOL_capacity_factor = 0.9 #90% of capacity available after 700 cycles
+harness_loss = 0.02 #Total cable loss, based on cable_sizing analysis
 
 #Current state of the art commerical Li-ion specs
 #https://iopscience.iop.org/article/10.1149/1945-7111/abf05f
@@ -27,7 +27,7 @@ harness_loss = 0.02
 #https://f.hubspotusercontent10.net/hubfs/6584819/Cell%20Spec%20Sheets/LG/Lithium%20Ion%20LG%20INR%2021700%20M50LT%202021-LSD-MBD-b00002_21700_M50LT_PS_Promotion_V1.pdf
 target_battery_energy_density = 231 #Wh/kg
 cell_voltage = 3.7 #Cell voltage [V]
-bus_voltage = 100 #Battery discharge voltage [V]
+bus_voltage = 60 #Battery discharge voltage [V]
 cell_capacity = 5 #Cell capacity [Ah]
 cell_height = 70 #mm
 cell_diameter = 21 #mm
@@ -65,7 +65,6 @@ battery_capacity = np.max(energy_state_profile)-np.min(energy_state_profile)
 #Calculate actual battery capacity, taking into account battery efficiency (only applied to power that is not directly consumed!)
 actual_battery_capacity = battery_capacity / (EOL_capacity_factor * depth_of_discharge) #Actual battery capacity [J]
 print('Required actual battery capacity [Wh]', actual_battery_capacity/3600)
-
 
 #Construct a graph of State of Charge (SOC) of the battery
 #Set state of charge=0 at minimum energy state
@@ -108,6 +107,7 @@ power_charge_max = np.max(net_power_profile)
 power_discharge_max = np.min(net_power_profile)
 required_charge_rate_max = 3600 / (actual_battery_capacity/power_charge_max)
 required_discharge_rate_max = -3600 / (actual_battery_capacity/power_discharge_max)
+print('peak discharge rate', required_discharge_rate_max)
 
 if required_charge_rate_max<cell_max_charge_rate and required_discharge_rate_max<cell_max_discharge_rate:
     print('Cell charge performance is acceptable')
