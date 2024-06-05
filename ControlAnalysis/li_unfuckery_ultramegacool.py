@@ -36,7 +36,9 @@ class PIDController:
 
         # Clipped return
         if self.type == 'altitude':
-            return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.5*g, 0.5*g) #TODO: proper clipping here
+            return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.25, 0.25) #TODO: proper clipping here
+        elif self.type == 'attitude':
+            return np.clip(self.Kp * error + self.Ki * self.integral + self.Kd * derivative, -0.25, 0.25) #TODO: proper clipping here
         else:
             return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
 
@@ -71,6 +73,10 @@ class HexacopterModel:
         self.arm_length = arm_length
         self.torque_thrust_ratio = torque_thrust_ratio
         self.omega_thrust_ratio = omega_thrust_ratio
+        
+        mass_skew_factor = 0  # the fraction that the base thrust is off of the hover thrust
+        self.estimated_mass = mass*(1+mass_skew_factor)
+        self.estimated_moment_inertia = np.max(moment_inertia*(1+mass_skew_factor))
 
         self.setup_pids(pid_params)
 
@@ -82,6 +88,8 @@ class HexacopterModel:
             [-torque_thrust_ratio, torque_thrust_ratio, -torque_thrust_ratio, torque_thrust_ratio,
              -torque_thrust_ratio, torque_thrust_ratio]
         ])
+
+        self.input_type_list = ['altitude', 'attitude', 'attitude', 'attitude']  
 
     # Hexacopter dynamics
     def hexacopter_dynamics(self, state, t, inputs):
@@ -97,6 +105,7 @@ class HexacopterModel:
         m = self.mass
         K_MT = self.torque_thrust_ratio
         K_omegaT = self.omega_thrust_ratio
+        g = self.environment['g']
 
 
         # Translational dynamics
@@ -126,12 +135,43 @@ class HexacopterModel:
 
         # x, y, z, phi, theta, psi, x_dot, y_dot, z_dot, p, q, r
         self.state_to_pid_control_map = [None, None, 0, 1, 2, 3, None, None, None, None, None, None]
-
         self.pid_control_to_state_map = [2, 3, 4, 5]
         
         self.pid_control_to_input_map = [0, 1, 2, 3]
+        self.input_to_pid_control_map = [0, 1, 2, 3]
 
-    def get_control(self, state, set_point, dt):
+    def clip_inputs(self, inputs, thrust_range=[-0.5, 0.5], moment_range=[-1, 1]):
+        #TODO have function to map these to thrusters and clip these while retaining relative moments
+        for i, input_type in enumerate(self.input_type_list):
+            if 'thruster' == input_type:
+                inputs[i] = np.clip(inputs[i], thrust_range[0], thrust_range[1])
+            elif 'altitude' == input_type:
+                inputs[i] = np.clip(inputs[i], thrust_range[0], thrust_range[1])
+            elif 'attitude' == input_type:
+                inputs[i] = np.clip(inputs[i], moment_range[0], moment_range[1])
+            else:
+                raise ValueError('Undefined input type in input type list')
+
+        return inputs
+
+    def mod_inputs(self, inputs):
+        # M = pid * J * g / L
+        # T = (1+pid)*mass estimated*g
+
+        for i, input_type in enumerate(self.input_type_list):
+            if 'thruster' == input_type:
+                pass
+            elif 'altitude' == input_type:
+                inputs[i] = (inputs[i] + 1) * self.estimated_mass * self.environment['g']
+            elif 'attitude' == input_type:
+                inputs[i] *= self.estimated_moment_inertia * self.environment['g'] / self.arm_length
+            else:
+                raise ValueError('Undefined input type in input type list')
+        
+        return inputs
+            
+
+    def get_control(self, state, set_point, dt, *, thrust_range=[-0.5, 0.5], moment_range=[-1, 1]):
         inputs = [0]*len(self.pid_control_to_input_map)
 
         for i, pid in enumerate(self.pid_list_control):
@@ -140,63 +180,135 @@ class HexacopterModel:
 
             input_id = self.pid_control_to_input_map[i]
             inputs[input_id] = pid.update(state[state_id], dt)
+
+        inputs = self.clip_inputs(inputs, thrust_range=thrust_range, moment_range=moment_range)
+        inputs = self.mod_inputs(inputs)
         
         return inputs
     
-    def clip_inputs(self, inputs, thrust_range=[-0.5, 0.5], moment_range=[-1, 1]):
-        # Clip max thrust
-        inputs[0] = np.clip(inputs[0], thrust_range[0], thrust_range[1])
-        # Clip maximum moments
-        inputs[2]
+    def simulate(self, times, initial_state, setpoints):
+
+        """
+        Simulate the hexacopter dynamics
+        times:  array-like - time points for the simulation
+        initial_state: array-like - initial state of the hexacopter [x, y, z, phi, theta, psi, x_dot, y_dot, z_dot, p, q, r]
+        setpoints: array-like - setpoints for the simulation [z, phi, theta, psi], this should be the same length as max_time/time_step
+        """
+        desired_x, desired_y, desired_z, desired_phi, desired_theta, desired_psi, desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r = setpoints
+        time_step = times[1] - times[0]
+        states = [initial_state]
+        for i in range(1, len(times)):
+            current_state = states[-1]
+            inputs = self.get_control(current_state, [desired_x[i], desired_y[i], desired_z[i], desired_phi[i], desired_theta[i], desired_psi[i], desired_xdot[i], desired_ydot[i], desired_zdot[i], desired_p[i], desired_q[i], desired_r[i]], time_step)
+            inputs = tuple([inputs],)
+            new_state = odeint(self.hexacopter_dynamics, current_state, [0, time_step], args=inputs)[-1]
+            states.append(new_state)
         
-    def simulate
-
-# Simulation loop
-dt = t[1] - t[0]
-states = [initial_state]
-for i in range(1, len(t)):
-    current_state = states[-1]
-    z = current_state[2]
-    phi = current_state[3]
-    theta = current_state[4]
-    psi = current_state[5]
+        return np.array(states), times
     
-    pid_altitude.set_point = desired_z[i]  # Update the desired altitude at each time step
+    @staticmethod
+    def plot_figures(states, times, setpoints):
+
+        """
+            Plot the simulation results
+        """
+
+        desired_x, desired_y, desired_z, desired_phi, desired_theta, desired_psi, desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r = setpoints
+
+        plt.figure()
+        plt.subplot(4, 1, 1)
+        plt.plot(times, states[:, 0], label='x')
+        plt.plot(times, desired_x, 'r--', label='desired x')
+        plt.plot(times, states[:, 1], label='y')
+        plt.plot(times, desired_y, 'g--', label='desired y')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Position [m]')
+        plt.legend()
+
+        plt.subplot(4, 1, 2)
+        plt.plot(times, states[:, 2], label='z')
+        plt.plot(times, desired_z, 'r--', label='desired z')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Altitude [m]')
+        plt.ylim([0, 100])
+        plt.legend()
+
+        plt.subplot(4, 1, 3)
+        plt.plot(times, states[:, 3], label='phi')
+        plt.plot(times, desired_phi, 'r--', label='desired phi')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Roll [rad]')
+        plt.legend()
+
+        plt.subplot(4, 1, 4)
+        plt.plot(times, states[:, 4], label='theta')
+        plt.plot(times, desired_theta, 'r--', label='desired theta')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Pitch [rad]')
+        plt.legend()
+
+        plt.tight_layout()
+        plt.show()
+
+if __name__ == "__main__":
     
-    u1 = m * (g + pid_altitude.update(z, dt))
-    u2 = pid_roll.update(phi, dt)
-    u3 = pid_pitch.update(theta, dt)
-    u4 = pid_yaw.update(psi, dt)
+    mass = 60.0
+    moment_inertia = np.diag([5, 5, 5])
+    moment_inertia_prop = 0.01
+    pid_params = [[12, 0.5, 12, 3], [5, 0.2, 3, 10], [5, 0.2, 3, 10], [5, 0.2, 3, 10]]
+    torque_thrust_ratio = 0.1
+    omega_thrust_ratio = 0.1
+    ENV = ENVdict
+
+    hexacopter = HexacopterModel(mass, moment_inertia, moment_inertia_prop, pid_params, torque_thrust_ratio=torque_thrust_ratio, omega_thrust_ratio=omega_thrust_ratio, ENV=ENV)
+
+    t = np.linspace(0, 50, 10000)
+    initial_state = np.zeros(12)
+    # initial altitude is nonzero
+    initial_state[2] = 50 
+
+    # desired_z = np.zeros_like(t)
+    # desired_z[t <= 5] = np.linspace(0, 20, len(t[t <= 5]))
+    # desired_z[(t > 5) & (t <= 10)] = 20
+    # desired_z[(t > 10) & (t <= 20)] = 30
+    # desired_z[(t > 20) & (t <= 30)] = 10
+    # desired_z[(t > 30) & (t <= 32)] = 20
+    # desired_z[t > 32] = 20
+
+    desired_x = np.zeros_like(t)
+    desired_y = np.zeros_like(t)
+    desired_z = np.ones_like(t) * 50 # should hover
+    desired_phi = np.sin(t/2)/10
+    desired_theta = np.zeros_like(t)
+    desired_psi = np.zeros_like(t)
+    desired_xdot = np.zeros_like(t)
+    desired_ydot = np.zeros_like(t)
+    desired_zdot = np.zeros_like(t)
+    desired_p = np.zeros_like(t)
+    desired_q = np.zeros_like(t)
+    desired_r = np.zeros_like(t)
     
-    new_state = odeint(hexacopter_dynamics, current_state, [0, dt], args=(u1, u2, u3, u4))[-1]
-    states.append(new_state)
+    desired_states = [desired_x, desired_y, desired_z, desired_phi, desired_theta, desired_psi, desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r]
 
-# Convert states to numpy array for easier plotting
-states = np.array(states)
+    # desired_states = [
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     # z, phi, theta, psi
+    #     desired_z,
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     np.zeros_like(t),
+    #     np.zeros_like(t)
+    # ]
 
-# Plotting
-plt.figure()
-plt.subplot(3, 1, 1)
-plt.plot(t, states[:, 2], label='z')
-plt.plot(t, desired_z, 'r--', label='desired z')
-plt.xlabel('Time [s]')
-plt.ylabel('Altitude [m]')
-plt.legend()
+    states, times = hexacopter.simulate(t, initial_state, desired_states)
+    hexacopter.plot_figures(states, times, desired_states)
 
-plt.subplot(3, 1, 2)
-plt.plot(t, states[:, 3], label='phi')
-plt.plot(t, np.zeros_like(t), 'r--', label='desired phi')
-plt.xlabel('Time [s]')
-plt.ylabel('Roll [rad]')
-plt.legend()
 
-plt.subplot(3, 1, 3)
-plt.plot(t, states[:, 4], label='theta')
-plt.plot(t, np.zeros_like(t), 'r--', label='desired theta')
-plt.xlabel('Time [s]')
-plt.ylabel('Pitch [rad]')
-plt.legend()
-
-plt.tight_layout()
-plt.show()
-
+    
+    
