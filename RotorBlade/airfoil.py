@@ -23,7 +23,7 @@ airfoils = {
 class Airfoil:
     def __init__(self, name: str):
         """Initializes:
-            alpha, cl, cd: The angle of attack, lift coefficient, and drag coefficient of the airfoil. [deg, -, -]
+            alphas, cls, cds: The angle of attack, lift coefficient, and drag coefficient of the airfoil. [deg, -, -]
         Args:
             name: The name of the airfoil. [-]
         """
@@ -36,6 +36,6 @@ class Airfoil:
         self.cds = airfoils[self.name]['cd']
     
 if __name__ == '__main__':
-    airfoil = Airfoil('Diamond')
+    airfoil = [Airfoil(name) for name in airfoils]
     print(f'{airfoil.name = }')
     print(f'{airfoil.alphas = }')    
