@@ -152,7 +152,7 @@ class HexacopterModel:
         theta_dot = q * np.cos(phi) - r * np.sin(phi)
         psi_dot = q * np.sin(phi) / np.cos(theta) + r * np.cos(phi) / np.cos(theta)
         
-        p_dot = (J[1,1] - J[2,2]) * q * r / J[0,0] + u2 / J[0,0] #TODO: Check whether we should include propeller inertia effects
+        p_dot = (J[1,1] - J[2,2]) * q * r / J[0,0] + u2 / J[0,0]
         q_dot = (J[2,2] - J[0,0]) * p * r / J[1,1] + u3 / J[1,1]
         r_dot = (J[0,0] - J[1,1]) * p * q / J[2,2] + u4 / J[2,2]
         
