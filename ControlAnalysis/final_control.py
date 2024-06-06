@@ -281,7 +281,7 @@ if __name__ == "__main__":
     mass = 60.0
     moment_inertia = np.diag([5, 5, 8])
     moment_inertia_prop = 0.01
-    pid_params = [[30, 0.5, 17, 3], [5, 0.2, 3, 10], [5, 0.2, 3, 10], [5, 0.2, 3, 10]]
+    pid_params = [[1000, 0.5, 17, 3], [5, 0.2, 3, 10], [5, 0.2, 3, 10], [5, 0.2, 3, 10]]
     torque_thrust_ratio = 0.1
     omega_thrust_ratio = 0.1
     ENV = ENVdict
@@ -309,7 +309,8 @@ if __name__ == "__main__":
 
     desired_phi = np.sin(t/2)/10
     desired_phi = np.zeros_like(t)
-    desired_theta = np.ones_like(t) * 0.05
+    # desired_theta = np.ones_like(t) * 0.05
+    desired_theta = np.zeros_like(t)
     # desired_theta = np.sin(t/2 + np.pi/2)/10
     desired_psi = np.zeros_like(t)
     desired_xdot = np.zeros_like(t)
