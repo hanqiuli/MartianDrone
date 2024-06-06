@@ -55,35 +55,35 @@
 # thermal_resistance_ground_drone = 0.049
 # thermal_resistance_suspension_drone = 1.052
 """
-"""
-# ----------------COLD CASE----------------
-        self.temperature_atmosphere = 173  # [K] - Atmospheric temperature
-        self.temperature_ground = 170  # [K] - Ground temperature
-        self.irradiance_sun = 0  # [W/m^2] - Solar irradiance
-        self.absorptivity = 0.2  # [-] - Absorptance of the drone
-        self.f_sr = 1  # [-] - View factor for solar radiation
-        self.area_top = 1.5  # [m^2] - Top surface area of the drone
-        
-        self.albedo = 0.4  # [-] - Albedo of Mars
-        
-        self.temperature_effective_mars = 209.8  # [K] - Effective temperature for radiation of black body of Mars
-        self.emissivity_mars = 0.65  # [-]-  Emissivity of Mars
-        self.stefan_boltzmann_constant = 5.6704e-8  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
-        # Drone properties
-        self.heat_rate_electronics = 50  # [W] - Heat from electronics
-        self.heat_rate_motor = 0  # [W] - Heat from motor
-        
-        self.coefficient_convection = 1  # [W/m^2*K] - Convection coefficient
-        self.area_total = 4  # [m^2] - Total surface area of the drone
-        self.f_re = 1  # [-] - View factor for emitted radiation
-        self.emissivity_drone = 0.85  # [-] - Emissivity of the drone
+heat_balance_cold = {
+    'temperature_atmosphere': 173,  # [K] - Atmospheric temperature
+    'temperature_ground': 170,  # [K] - Ground temperature
+    'irradiance_sun': 0,  # [W/m^2] - Solar irradiance
+    'absorptivity': 0.2,  # [-] - Absorptance of the drone
+    'f_sr': 1,  # [-] - View factor for solar radiation
+    'area_top': 1.5,  # [m^2] - Top surface area of the drone
 
-        # Thermal resistance
-        self.num_legs = 0  # [-] - Number of legs
-        self.thermal_resistance_ground_drone = 0.049  # [K/W] - Thermal resistance between ground and drone
-        self.thermal_resistance_suspension_drone = 1.052  # [K/W] - Thermal resistance between suspension and drone
-"""
+    'albedo': 0.4,  # [-] - Albedo of Mars
+
+    'temperature_effective_mars': 209.8,  # [K] - Effective temperature for radiation of black body of Mars
+    'emissivity_mars': 0.65,  # [-]-  Emissivity of Mars
+    'stefan_boltzmann_constant': 5.6704e-8,  # [W/m^2*K^4] - Stefan-Boltzmann constant
+
+    # Drone properties
+    'heat_rate_electronics': 50,  # [W] - Heat from electronics
+    'heat_rate_motor': 0,  # [W] - Heat from motor
+
+    'coefficient_convection': 1,  # [W/m^2*K] - Convection coefficient
+    'area_total': 4,  # [m^2] - Total surface area of the drone
+    'f_re': 1,  # [-] - View factor for emitted radiation
+    'emissivity_drone': 0.85,  # [-] - Emissivity of the drone
+
+    # Thermal resistance
+    'num_legs': 2,  # [-] - Number of legs
+    'thermal_resistance_ground_drone': 0.049,  # [K/W] - Thermal resistance between ground and drone
+    'thermal_resistance_suspension_drone': 1.052,  # [K/W] - Thermal resistance between suspension and drone
+}
 
 from sympy.solvers import solve
 from sympy import Symbol
@@ -96,32 +96,33 @@ class MarsDroneHeatTransfer:
 
     def __init__(self):
         # Environmental properties
-        self.temperature_atmosphere = 173  # [K] - Atmospheric temperature
-        self.temperature_ground = 170  # [K] - Ground temperature
-        self.irradiance_sun = 0  # [W/m^2] - Solar irradiance
-        self.absorptivity = 0.2  # [-] - Absorptance of the drone
-        self.f_sr = 1  # [-] - View factor for solar radiation
-        self.area_top = 1.5  # [m^2] - Top surface area of the drone
+        heat_dictionary = heat_balance_cold
+        self.temperature_atmosphere = heat_dictionary['temperature_atmosphere']  # [K] - Atmospheric temperature
+        self.temperature_ground = heat_dictionary['temperature_ground']  # [K] - Ground temperature
+        self.irradiance_sun = heat_dictionary['irradiance_sun']  # [W/m^2] - Solar irradiance
+        self.absorptivity = heat_dictionary['absorptivity']  # [-] - Absorptance of the drone
+        self.f_sr = heat_dictionary['f_sr']  # [-] - View factor for solar radiation
+        self.area_top = heat_dictionary['area_top']  # [m^2] - Top surface area of the drone
         
-        self.albedo = 0.4  # [-] - Albedo of Mars
+        self.albedo = heat_dictionary['albedo']  # [-] - Albedo of Mars
         
-        self.temperature_effective_mars = 209.8  # [K] - Effective temperature for radiation of black body of Mars
-        self.emissivity_mars = 0.65  # [-]-  Emissivity of Mars
-        self.stefan_boltzmann_constant = 5.6704e-8  # [W/m^2*K^4] - Stefan-Boltzmann constant
+        self.temperature_effective_mars = heat_dictionary['temperature_effective_mars']  # [K] - Effective temperature for radiation of black body of Mars
+        self.emissivity_mars = heat_dictionary['emissivity_mars']  # [-]-  Emissivity of Mars
+        self.stefan_boltzmann_constant = heat_dictionary['stefan_boltzmann_constant']  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
         # Drone properties
-        self.heat_rate_electronics = 50  # [W] - Heat from electronics
-        self.heat_rate_motor = 0  # [W] - Heat from motor
+        self.heat_rate_electronics = heat_dictionary['heat_rate_electronics']  # [W] - Heat from electronics
+        self.heat_rate_motor = heat_dictionary['heat_rate_motor']  # [W] - Heat from motor
         
-        self.coefficient_convection = 1  # [W/m^2*K] - Convection coefficient
-        self.area_total = 4  # [m^2] - Total surface area of the drone
-        self.f_re = 1  # [-] - View factor for emitted radiation
-        self.emissivity_drone = 0.85  # [-] - Emissivity of the drone
+        self.coefficient_convection = heat_dictionary['coefficient_convection']  # [W/m^2*K] - Convection coefficient
+        self.area_total = heat_dictionary['area_total']  # [m^2] - Total surface area of the drone
+        self.f_re = heat_dictionary['f_re']  # [-] - View factor for emitted radiation
+        self.emissivity_drone = heat_dictionary['emissivity_drone']  # [-] - Emissivity of the drone
 
         # Thermal resistance
-        self.num_legs = 0  # [-] - Number of legs
-        self.thermal_resistance_ground_drone = 0.049  # [K/W] - Thermal resistance between ground and drone
-        self.thermal_resistance_suspension_drone = 1.052  # [K/W] - Thermal resistance between suspension and drone
+        self.num_legs = heat_dictionary['num_legs']  # [-] - Number of legs
+        self.thermal_resistance_ground_drone = heat_dictionary['thermal_resistance_ground_drone']  # [K/W] - Thermal resistance between ground and drone
+        self.thermal_resistance_suspension_drone = heat_dictionary['thermal_resistance_suspension_drone']  # [K/W] - Thermal resistance between suspension and drone
     
     def heat_rate_external_input(self, temperature_drone):
         """

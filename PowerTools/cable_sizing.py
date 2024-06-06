@@ -65,5 +65,3 @@ def get_cable_loss():
     cable_loss = power_loss_percentage*SF
     return cable_loss
 print(get_cable_loss())
-
-#Conclusion: looks like we need 2.5kg of cables, resulting in a power loss of 2%

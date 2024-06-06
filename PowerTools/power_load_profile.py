@@ -168,13 +168,6 @@ for i in range(profile_time_2_day_mission['deposit_rock']):
 for i in range(profile_time_2_day_mission['afternoon_rest']):
     power_series_2_day.append(power_usage_baseline)
 
-#Plot power profile 2 day mission
-plt.plot(time_series_2_day, power_series_2_day)
-plt.title('Power load profile 2 day return mission')
-plt.xlabel('Mission duration [s]')
-plt.ylabel('Power usage [W]')
-plt.show()
-
 #Calculate maximum power usage
 # print('max_power_1_day [W]', np.max(power_series_1_day))
 print('max_power_2_day [W]', np.max(power_series_2_day))
@@ -190,6 +183,14 @@ print('mission_energy_2_day [Wh]', mission_energy_2_day/3600)
 print('design average power [W]', average_power)
 # print(abs(mission_energy_1_day-mission_energy_2_day/2)/mission_energy_1_day*100)
 
+#Plot power profile 2 day mission
+plt.plot(time_series_2_day/3600, power_series_2_day, label='power usage')
+plt.title('Power load profile 2 day return mission')
+plt.annotate('Average power usage [W]: '+str(np.round(average_power,2)), (38,300))
+plt.annotate('Energy consumed per day [Wh]: '+str(np.round(mission_energy_2_day/2/3600,2)), (38,500))
+plt.xlabel('Mission duration [hours]')
+plt.ylabel('Power usage [W]')
+plt.show()
 '''
 Conclusion from this analysis: the 1 day mission profile
 is more constraining in terms of energy usage with the current
