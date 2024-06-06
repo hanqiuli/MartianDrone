@@ -57,6 +57,7 @@ def W_to_dBm(n):
         else:
             dbm[i] = 10*np.log10(1000*n[i])
     return dbm
+
 def dBm_to_W(n):
     W = np.zeros(len(n))
     for i in range(len(n)):

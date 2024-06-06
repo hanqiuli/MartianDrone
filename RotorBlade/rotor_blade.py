@@ -7,8 +7,8 @@ def initialise_blade():
     radius_rotor = 1.20
     num_blades = 4
     radial_nondim_stations = [0.08, 0.25, 0.75, 1.00]
-    chord_nondim_stations = [0.12, 0.16, 0.14, 0.10]
-    pitch_params = [0.2, 0.1, -0.3]
+    chord_nondim_stations = [0.10, 0.16, 0.14, 0.08]
+    pitch_params = [0.126, 0.452, -0.0218]
     airfoil_name_stations = ['Diamond', 'Triangle', 'DEP 0.5', 'DEP 0.7']
     return Blade(radius_rotor, num_blades, radial_nondim_stations, chord_nondim_stations, pitch_params, airfoil_name_stations)
 
@@ -23,9 +23,10 @@ def calculate_blade_properties(blade):
     blade.calculate_reynolds(gamma_air, gas_constant_air, temp_air, density_air, viscosity_air, mach_tip)
     blade.calculate_pitch()
     blade.interpolate_airfoil_params()
-    blade.calculate_loop()
+    blade.calculate_aerodynamic_coefficients()
     blade.calculate_thrust_coefficient()
-    blade.calculate_power_coefficient()
+    blade.calculate_induced_power_coefficient()
+    blade.calculate_profile_power_coefficient()
     blade.calculate_thrust_and_power(density_air)
 
 def print_blade_properties(blade):
@@ -38,7 +39,10 @@ def print_blade_properties(blade):
     print(f'{blade.thrust_coefficient_rotor         = :>10.4e}')
     print(f'{blade.thrust_rotor                     = :>10.4g} N')
     print(f'{blade.power_induced_coefficient_rotor  = :>10.4e}')
+    print(f'{blade.power_profile_coefficient_rotor  = :>10.4e}')
     print(f'{blade.power_induced_rotor              = :>10.4g} W')
+    print(f'{blade.power_profile_rotor              = :>10.4g} W')
+    print(f'{blade.power_rotor                      = :>10.4g} W')
 
 def plot_blade_properties(blade):
     if 0:   # Planform geometry
@@ -70,15 +74,6 @@ def plot_blade_properties(blade):
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
-    if 1:   # Lift slope
-        plt.plot(blade.radial_nondim, blade.lift_slope)
-        plt.xlabel('$r/R$ [-]')
-        plt.ylabel('$dC_L/d\\alpha$ [1/deg]')
-        plt.xlim(0, 1)
-        plt.ylim(bottom=0)
-        plt.minorticks_on()
-        plt.grid(which='both')
-        plt.show()
     if 0:   # Reynolds number
         plt.plot(blade.radial_nondim, blade.reynolds)
         plt.xlabel('$r/R$ [-]')
@@ -88,22 +83,42 @@ def plot_blade_properties(blade):
         plt.minorticks_on()
         plt.grid(which='both')
         plt.show()
-    if 1:   # Pitch, inflow angle and angle of attack
-        plt.plot(blade.radial_nondim, np.rad2deg(blade.pitch), label='Pitch')
-        plt.plot(blade.radial_nondim, np.rad2deg(blade.inflow_angle), label='Inflow Angle')
-        plt.plot(blade.radial_nondim, np.rad2deg(blade.angle_of_attack), label='Angle of Attack')
+    if 0:   # Lift and drag coefficients
+        plt.plot(blade.radial_nondim, blade.cl, label='Section $c_l$')
+        plt.plot(blade.radial_nondim, blade.cd, label='Section $c_d$')
         plt.xlabel('$r/R$ [-]')
-        plt.ylabel('Angle [deg]')
+        plt.ylabel('$Section Coefficient$ [-]')
         plt.xlim(0, 1)
         plt.ylim(bottom=0)
         plt.minorticks_on()
         plt.grid(which='both')
         plt.legend()
         plt.show()
-    if 0:   # Inflow
+    if 1:   # Pitch, inflow angle and angle of attack
+        plt.plot(blade.radial_nondim, np.rad2deg(blade.pitch), label='Pitch')
+        plt.plot(blade.radial_nondim, np.rad2deg(blade.inflow_angle), label='Inflow Angle')
+        plt.plot(blade.radial_nondim, np.rad2deg(blade.alpha), label='Angle of Attack')
+        plt.xlabel('$r/R$ [-]')
+        plt.ylabel('Angle [deg]')
+        plt.xlim(0, 1)
+        # plt.ylim(bottom=0)
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.legend()
+        plt.show()
+    if 1:   # Inflow
         plt.plot(blade.radial_nondim, blade.inflow)
         plt.xlabel('$r/R$ [-]')
         plt.ylabel('$\\lambda$ [-]')
+        plt.xlim(0, 1)
+        plt.ylim(bottom=0)
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.show()
+    if 0:   # Induced velocity
+        plt.plot(blade.radial_nondim, blade.induced_velocity)
+        plt.xlabel('$r/R$ [-]')
+        plt.ylabel('$v$ [m/s]')
         plt.xlim(0, 1)
         plt.ylim(bottom=0)
         plt.minorticks_on()
@@ -120,14 +135,16 @@ def plot_blade_properties(blade):
         plt.grid(which='both')
         plt.legend()
         plt.show()
-    if 0:   # Power coefficient
-        plt.plot(blade.radial_nondim, blade.power_induced_coefficient)
+    if 0:   # Power coefficients
+        plt.plot(blade.radial_nondim, blade.power_induced_coefficient, label='$C_{P_i}$')
+        plt.plot(blade.radial_nondim, blade.power_profile_coefficient, label='$C_{P_o}$')
         plt.xlabel('$r/R$ [-]')
-        plt.ylabel('$C_{P_i}$ [-]')
+        plt.ylabel('$C_P$ [-]')
         plt.xlim(0, 1)
         plt.ylim(bottom=0)
         plt.minorticks_on()
         plt.grid(which='both')
+        plt.legend()
         plt.show()
 
 def main():

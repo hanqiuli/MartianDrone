@@ -1,7 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from environment_properties import ENV
+# some_file.py
+import sys
+# caution: path[0] is reserved for script path (or '' in REPL)
+sys.path.insert(1, 'legacy\DesignTools')
 
+from environment_properties import ENV
 # region Constants
 rho_air     = ENV['rho']    # [kg/m^3]      Air density
 g           = ENV['g']      # [m/s^2]       Gravitational acceleration
@@ -19,9 +23,12 @@ temp_init   = 273.15 - 10   # [K]   Initial motor temperature
 temp_max    = 273.15 + 100  # [K]   Maximum motor temperature
 
 # Rotorcraft parameters
-mass                = 49.2    # [kg]  Total mass of the rotorcraft
-mass_motor_total    = 3.125      # [kg]  Total mass of the motors
-power_rotor_total   = 7232*0.7   # [W]   Total power of the rotors
+power_motor_total   = 7232      # [W]   Total power of the motors
+eff_motor           = 0.70      # [-] Motor efficiency
+
+mass                = 49.2      # [kg]  Total mass of the rotorcraft
+mass_motor_total    = 3.125     # [kg]  Total mass of the motors
+power_rotor_total   = power_motor_total*eff_motor   # [W]   Total power of the rotors
 r_rotor             = 1.31      # [m]   Rotor radius
 n_rotors            = 6         # [-]   Number of rotors
 
@@ -32,23 +39,21 @@ power_rotor = power_rotor_total / n_rotors  # [W]   Power per rotor
 # Motor parameters
 cp_motor    = 900.0    # [J/(kg*K)]    Motor specific heat capacity
 k_motor     = 237.0     # [W/(m*K)]     Motor thermal conductivity
-eff_motor   = 0.70      # [-]           Motor efficiency
 D_motor     = 0.08      # [m]           Motor diameter
-# mass_motor  = 0.65      # [kg]          Motor mass 
 
 mass_motor  = mass_motor_total / n_rotors   # [kg]          Motor mass
-power_motor = power_rotor / eff_motor       # [W] Motor power
+power_motor = power_motor_total / n_rotors  # [W] Motor power
 
 # Cruise parameters
 power_factor_cruise = 3/4
-t_cruise = 0  # in seconds
+t_cruise = 20*60  # in seconds
 # endregion
 
 # region Fin calculations
-L_fin   = 0.06  # [m]       Fin length
+L_fin   = 0.15  # [m]       Fin length
 H_fin   = 0.04  # [m]       Fin height
-t_fin   = 0.003 # [m]       Fin thickness
-s_fin   = 0.001 # [m]       Fin spacing
+t_fin   = 0.002 # [m]       Fin thickness
+s_fin   = 0.005 # [m]       Fin spacing
 rho_fin = 2700  # [kg/m^3]  Fin density
 
 n_fins  = np.floor(np.pi * D_motor / (t_fin + s_fin))           # [-]   Number of fins
@@ -105,7 +110,7 @@ def calc_R_th(h, eff_fin, n_fins, A_f, A_b): # Thermal resistance
 # endregion
 
 # region Convection calculations
-w_rotor = calc_w_rotor(A_disk, rho_air, weight, n_rotors)
+w_rotor = 22
 Pr      = calc_Pr(kin_vsc_air, alpha_air)
 Re      = calc_Re(kin_vsc_air, L_fin, w_rotor)
 Nu      = calc_Nu(Re, Pr)
@@ -122,20 +127,17 @@ print(f'h: {h} W/(m^2*K)')
 print(f'eff_fin: {eff_fin}')
 print(f'R_th: {R_th} K/W')
 # endregion
-
+print(n_fins)
 # region Thermal simulation
-time = np.linspace(0, 30*60, 1000)
+time = np.linspace(0, 30*60, 10000)
 dt   = time[1] - time[0]
 
 # Temperature rise without cooling
 temp_no_cool = np.zeros_like(time)
 temp_no_cool[0] = temp_init
 for i in range(1, len(time)):
-    if time[i] > 60:
-        if time[i] <= (60 + t_cruise):
-            power_effective = power_motor * (1 - eff_motor) * power_factor_cruise
-        else:
-            power_effective = power_motor * (1 - eff_motor)
+    if 60+t_cruise >= time[i] > 60:
+        power_effective = power_motor * (1 - eff_motor) * power_factor_cruise
     else:
         power_effective = power_motor * (1 - eff_motor)
     
