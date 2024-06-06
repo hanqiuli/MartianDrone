@@ -66,6 +66,9 @@ battery_capacity = np.max(energy_state_profile)-np.min(energy_state_profile)
 actual_battery_capacity = battery_capacity / (EOL_capacity_factor * depth_of_discharge) #Actual battery capacity [J]
 print('Required actual battery capacity [Wh]', actual_battery_capacity/3600)
 
+def get_battery_capacity():
+    actual_battery_capacity = battery_capacity / (EOL_capacity_factor * depth_of_discharge)
+    return actual_battery_capacity
 #Construct a graph of State of Charge (SOC) of the battery
 #Set state of charge=0 at minimum energy state
 zero_soc_index = np.argmin(energy_state_profile)

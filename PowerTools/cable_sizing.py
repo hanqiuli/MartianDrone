@@ -17,7 +17,7 @@ time_mars_day = 88775 #Average Martian day duration [sec]
 #Power usage data
 power_max_motor = 1000 #Max wattage of motors [W]
 voltage_motors = 60 #Max power operating voltage of motors [V]
-SF = 2.0 #Only the cable mass for the motors was calculated, to account for the total harness (cables from array and battery to PMC, cables from PMC to all other power users) a SF of 2 is used for mass and power loss calculation
+SF = 1.5 #Only the cable mass for the motors was calculated, to account for the total harness (cables from array and battery to PMC, cables from PMC to all other power users) a SF of 2 is used for mass and power loss calculation
 
 #Subsystem design currents
 max_current_motor = power_max_motor/voltage_motors
@@ -62,6 +62,7 @@ print(get_wires_mass())
 
 cable_loss = 0
 def get_cable_loss():
-    cable_loss = power_loss_percentage*SF
+    PCDU_loss = 0.5
+    cable_loss = power_loss_percentage*SF + PCDU_loss
     return cable_loss
 print(get_cable_loss())

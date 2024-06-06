@@ -73,6 +73,10 @@ print('n_cells', actual_n_cells)
 actual_array_area = actual_n_cells*(cell_area/10000)/packing_factor
 print('actual_array_area [m^2]', actual_array_area)
 
+def get_array_area():
+    actual_array_area = actual_n_cells*(cell_area/10000)/packing_factor
+    return actual_array_area
+
 mass_array = actual_array_area * solar_array_density
 print('mass_array [kg]', mass_array)
 
