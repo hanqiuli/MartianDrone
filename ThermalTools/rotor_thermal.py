@@ -6,6 +6,7 @@ import sys
 sys.path.insert(1, 'legacy\DesignTools')
 
 from environment_properties import ENV
+
 # region Constants
 rho_air     = ENV['rho']    # [kg/m^3]      Air density
 g           = ENV['g']      # [m/s^2]       Gravitational acceleration

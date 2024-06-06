@@ -12,11 +12,10 @@ data = SEData(data_path, backup_path)
 mass = data.get_properties('mass')
 
 material_props = {
-    'Al': {'E': 70e9, 'v': 0.33, 'rho': 2700, 'G': 26e9, 'sigma_y': 276e6},
-    'Steel': {'E': 200e9, 'v': 0.3, 'rho': 7850},
-    'Concrete': {'E': 30e9, 'v': 0.2, 'rho': 2400},
-    'Wood': {'E': 10e9, 'v': 0.3, 'rho': 800},
-    'Rubber': {'E': 0.01e9, 'v': 0.5, 'rho': 1200}
+    'Alloy_1': {'E': 315e9, 'v': 0.33, 'rho': 1850, 'G': 150e9, 'sigma_y': 415e6, 'embodied_energy': 6700},
+    'Alloy_2': {'E': 240e9, 'v': 0.3, 'rho': 2200, 'G':99e9, 'sigma_y': 330e6, 'embodied_energy': 4600 },
+    'Composite_1': {'E': 259e9, 'v': 0.2, 'rho': 2600, 'sigma_y': 249e6, 'G': 114e9,'embodied_energy': 146},
+    'Composite_2': {'E': 139e9, 'v': 0.3, 'rho': 2500, 'sigma_y': 68.8e6, 'G': 55.6e9,'embodied_energy': 38.4},
 }
 
 arm_geometry = {
@@ -47,6 +46,8 @@ class Arm():
         self.v = material_props[material]['v']
         self.rho = material_props[material]['rho']
         self.G = material_props[material]['G']
+        self.sigma_y = material_props[material]['sigma_y']
+        self.embodied_energy = material_props[material]['embodied_energy']
         
         self.geometry_params = kwargs
         self.width = kwargs.get('width', None)
@@ -201,10 +202,10 @@ class Arm():
 
 
 if __name__ == "__main__":
-    material = 'Al'
+    materials = ['Alloy_1', 'Alloy_2', 'Composite_1', 'Composite_2']
     length = 2.03
     F = 46*(1.5**2)*3.71/6
-    r_blade = 1.5
+    r_blade = 1.3
     M_torsion =3*F*r_blade/20
     print(F)
     print(M_torsion)
@@ -321,61 +322,65 @@ if __name__ == "__main__":
     # plt.ylabel('Torsion Deflection (deg)')
     # plt.show()
     
+configurations = pd.DataFrame(columns=['outer_width', 'inner_width', 'outer_height', 'inner_height', 'mass', 'deflection', 'rotation', 'Iy', 'Ix', 'A', 'm', 'j', 'sigma_y', 'embodied_energy', 'material'])
 
+for material in materials:
+    arm = Arm(material, 'hollow_rectangle', length, outer_width=0.1, inner_width=0.08, outer_height=0.1, inner_height=0.08)
 
-arm = Arm(material, 'hollow_rectangle', length, outer_width=0.1, inner_width=0.08, outer_height=0.1, inner_height=0.08)
-configurations = pd.DataFrame(columns=['outer_width', 'inner_width', 'outer_height', 'inner_height', 'mass', 'deflection', 'rotation', 'Iy', 'Ix', 'A', 'm', 'j', 'sigma_y'])
+    # Define the range for the loops
+    outer_width_range = np.arange(0.01, 0.10, 0.01)
+    inner_width_range = np.arange(0.01, 0.10, 0.001)
+    outer_height_range = np.arange(0.01, 0.10, 0.01)
+    inner_height_range = np.arange(0.01, 0.10, 0.001)
 
-# Define the range for the loops
-outer_width_range = np.arange(0.01, 0.10, 0.01)
-inner_width_range = np.arange(0.01, 0.10, 0.001)
-outer_height_range = np.arange(0.01, 0.10, 0.01)
-inner_height_range = np.arange(0.01, 0.10, 0.001)
+    # Calculate the total number of iterations for the progress bar
+    total_iterations = sum(1 for i in outer_width_range for j in inner_width_range if i >j for k in outer_height_range for l in inner_height_range if k > l)
 
-# Calculate the total number of iterations for the progress bar
-total_iterations = sum(1 for i in outer_width_range for j in inner_width_range if i >j for k in outer_height_range for l in inner_height_range if k > l)
-
-t_min = 0.001
-# Iterate with progress bar
-with tqdm(total=total_iterations, desc="Processing Configurations") as pbar:
-    for i in outer_width_range:
-        for j in inner_width_range:
-            if i > j+2*t_min:
-                for k in outer_height_range:
-                    for l in inner_height_range:
-                        if k > l+2*t_min:   
-                            hollowrectarm = Arm(material, 'hollow_rectangle', length, outer_width=i, inner_width=j, outer_height=k, inner_height=l)
-                            if hollowrectarm.m < 10 and hollowrectarm.m > 0 and hollowrectarm.calculate_deflection(F, axis='x', type='point') < 0.5 \
-                                and hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi < 10 and hollowrectarm.tensile_stress_bending(F, direction = 'x')*1.25 < material_props[material]['sigma_y']:
-                                    new_row = pd.DataFrame({'outer_width': [i], 'inner_width': [j], 'outer_height': [k], 'inner_height': [l], 'mass': [hollowrectarm.m], 'deflection': [hollowrectarm.calculate_deflection(F, axis='x', type='point')], 'rotation': [hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi], 'Iy': [hollowrectarm.Iy], 'Ix': [hollowrectarm.Ix], 'A': [hollowrectarm.A], 'm': [hollowrectarm.m], 'j': [hollowrectarm.j], 'sigma_y': [hollowrectarm.tensile_stress_bending(F, direction = 'x')]})
-                                    configurations = pd.concat([configurations, new_row], ignore_index=True) 
-                                    # print(i,j,k,l)                           
-                            pbar.update(1)  # Update progress bar
+    t_min = 0.001
+    # Iterate with progress bar
+    with tqdm(total=total_iterations, desc="Processing Configurations") as pbar:
+        for i in outer_width_range:
+            for j in inner_width_range:
+                if i > j+2*t_min:
+                    for k in outer_height_range:
+                        for l in inner_height_range:
+                            if k > l+2*t_min:   
+                                hollowrectarm = Arm(material, 'hollow_rectangle', length, outer_width=i, inner_width=j, outer_height=k, inner_height=l)
+                                if hollowrectarm.m < 10 and hollowrectarm.calculate_deflection(F, axis='x', type='point') < 0.5 \
+                                    and hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi < 10 and hollowrectarm.tensile_stress_bending(F, direction = 'x')*1.5 < hollowrectarm.sigma_y:
+                                        new_row = pd.DataFrame({'outer_width': [i], 'inner_width': [j], 'outer_height': [k], 'inner_height': [l], 'mass': [hollowrectarm.m], 'deflection': [hollowrectarm.calculate_deflection(F, axis='x', type='point')],\
+                                                                 'rotation': [hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi], 'Iy': [hollowrectarm.Iy], 'Ix': [hollowrectarm.Ix], 'A': [hollowrectarm.A], 'm': [hollowrectarm.m], 'j': [hollowrectarm.j],\
+                                                                      'sigma_y': [hollowrectarm.tensile_stress_bending(F, direction = 'x')], 'embodied_energy': [hollowrectarm.embodied_energy], 'material': [material]})
+                                        configurations = pd.concat([configurations, new_row], ignore_index=True) 
+                                        # print(i,j,k,l)                           
+                                pbar.update(1)  # Update progress bar
 
 # Normalize the parameters
 configurations['norm_mass'] = (configurations['mass'] - configurations['mass'].min()) / (configurations['mass'].max() - configurations['mass'].min())
 configurations['norm_deflection'] = (configurations['deflection'] - configurations['deflection'].min()) / (configurations['deflection'].max() - configurations['deflection'].min())
 configurations['norm_rotation'] = (configurations['rotation'] - configurations['rotation'].min()) / (configurations['rotation'].max() - configurations['rotation'].min())
-
+configurations['norm_embody'] = (configurations['embodied_energy'] - configurations['embodied_energy'].min()) / (configurations['embodied_energy'].max() - configurations['embodied_energy'].min())
 # Define weights for each parameter
 weight_mass = 3.0
 weight_deflection = 2.0
 weight_rotation = 1.0
+weight_embody = 0
 
 # Calculate the composite score
 configurations['composite_score'] = (weight_mass * configurations['norm_mass'] +
                                      weight_deflection * configurations['norm_deflection'] +
-                                     weight_rotation * configurations['norm_rotation'])
+                                     weight_rotation * configurations['norm_rotation']+
+                                     weight_embody * configurations['norm_embody'])
+
+configurations.to_csv('configurations.csv', index=False)
 
 # Find the optimal configuration
-optimal_configuration = configurations.loc[configurations['composite_score'].idxmin()]
+sorted_data = configurations.sort_values('composite_score', ascending=True)
 
-# Print the optimal configuration
-print("Optimal Configuration:")
-print(optimal_configuration)
 
-# Save configurations to CSV
-configurations.to_csv('configurations.csv', index=False)
+# Print the top 5 configurations
+print(sorted_data.head(50))
+
 
 
     

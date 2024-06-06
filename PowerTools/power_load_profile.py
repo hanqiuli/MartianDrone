@@ -9,8 +9,8 @@ import scipy as sp
 
 # Local imports
 # from environment_properties import ENV
-time_mars_day = 88775
-
+time_mars_day = 88775 
+ 
 '''
 This file will output total energy required and 
 peak power usage for 1 Martian day based on a 
@@ -23,25 +23,46 @@ basic tool, its precision can be increased if we use
 variable power usage for communication f(distance) or
 variable thermal power usage f(temperature)
 '''
-
+#Preliminary design
 profile_power = {
     # 'name': (power [W])
-    'propulsive_takeoff': 5000,
+    'propulsive_takeoff': 5200,
     'propulsive_takeoff_with_rock': 5200,
-    'propulsive_cruise': 4000,
+    'propulsive_cruise': 4200,
     'propulsive_cruise_with_rock': 4200,
-    'propulsive_scanning': 4500,
-    'propulsive_landing': 5000,
+    'propulsive_scanning': 4200,
+    'propulsive_landing': 5200,
     'propulsive_landing_with_rock': 5200,
-    'propulsive_hover': 5000,
+    'propulsive_hover': 5200,
     'payload_collection': 15,
-    'communication': 15,
+    'communication': 1,
     'payload_scanning': 60,
-    'thermal_propulsion': 30,
+    'thermal_propulsion': 0,
     'thermal_avionics': 10,
     'thermal_battery': 15,
     'avionics': 5,
 }
+
+
+#Iteration 1
+# profile_power = {
+#     # 'name': (power [W])
+#     'propulsive_takeoff': 4500,
+#     'propulsive_takeoff_with_rock': 4500,
+#     'propulsive_cruise': 3375,
+#     'propulsive_cruise_with_rock': 3375,
+#     'propulsive_scanning': 3500,
+#     'propulsive_landing': 4500,
+#     'propulsive_landing_with_rock': 4500,
+#     'propulsive_hover': 4500,
+#     'payload_collection': 15,
+#     'communication': 1,
+#     'payload_scanning': 50,
+#     'thermal_propulsion': 0,
+#     'thermal_avionics': 10,
+#     'thermal_battery': 20,
+#     'avionics': 10,
+# }
 
 profile_time_2_day_mission = {
     # 'name': (durations [s])
