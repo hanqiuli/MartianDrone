@@ -16,9 +16,10 @@ time_mars_day = 88775 #Average Martian day duration [sec]
 #Inputs
 #Power usage data
 from power_load_profile import profile_power
-power_max_motor = profile_power['propulsive_takeoff']/6 #Max wattage of motors [W]
+power_max_motor = profile_power['propulsive_takeoff']*1.4/6 #Max wattage of motors [W], SF 1.4 (ie. max power 7200) to account for T/W 1.5
 voltage_motors = 60 #Max power operating voltage of motors [V]
-SF = 1.5 #Only the cable mass for the motors was calculated, to account for the total harness (cables from array and battery to PMC, cables from PMC to all other power users) a SF of 2 is used for mass and power loss calculation
+SF_mass = 1.5 #Only the cable mass for the motors was calculated, to account for the total harness (cables from array and battery to PMC, cables from PMC to all other power users) a SF of 1.5 is used for mass calculation
+SF_loss = 1.5 #SF on cable loss, we only sized from battery to motors so we need to add loss from power supply to battery
 
 #Subsystem design currents
 max_current_motor = power_max_motor/voltage_motors
@@ -27,7 +28,7 @@ max_current_communication = 0
 max_current_TCS = 0
 
 #Subsystems relative position from battery
-cable_length_motors = 2.8 #Length of propeller arms [m]
+cable_length_motors = 1.82 #Length of propeller arms [m]
 cable_length_payload = 0
 cable_length_communication = 0
 cable_length_TCS = 0
@@ -69,13 +70,13 @@ power_loss_percentage = ((power_max_motor/3)-power_loss_per_cable)/(power_max_mo
 #Output
 wires_mass = 0
 def get_wires_mass():
-    wires_mass = cable_mass_propulsion * SF
+    wires_mass = cable_mass_propulsion * SF_mass
     return wires_mass
 print('Wire mass: ', get_wires_mass())
 
 cable_loss = 0
 def get_cable_loss():
     PCDU_loss = 0.5
-    cable_loss = power_loss_percentage*SF + PCDU_loss
+    cable_loss = power_loss_percentage*SF_loss + PCDU_loss
     return cable_loss
 print('Harness loss: ', get_cable_loss())
