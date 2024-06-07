@@ -80,7 +80,7 @@ attitude_pids = [10, 3, 10]
 kp_phi, ki_phi, kd_phi = attitude_pids
 kp_theta, ki_theta, kd_theta = attitude_pids
 kp_psi, ki_psi, kd_psi = attitude_pids
-kp_z, ki_z, kd_z = 6.20765, 27.23212, 20.24626
+kp_z, ki_z, kd_z = 10, 5, 20
 
 # Tune PID controllers with saturation
 closed_loop_phi, t_phi, y_phi = tune_pid_with_saturation(phi_tf, kp_phi, ki_phi, kd_phi, max_moment_x)
