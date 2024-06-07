@@ -17,7 +17,8 @@ class Blade:
                  radial_nondim_stations: list[float], 
                  chord_nondim_stations: list[float], 
                  pitch_params: list[float], 
-                 airfoil_name_stations: list[str]) -> None:
+                 airfoil_name_stations: list[str],
+                 small_angle_approx: bool = True) -> None:
         """Initializes:
             radial, radial_nondim: The radial position over the rotor blade. [m, -]
             chord, chord_nondim: The chord distribution over the rotor blade. [m, -]
@@ -45,6 +46,7 @@ class Blade:
         if len(airfoil_name_stations) != len(radial_nondim_stations):
             raise ValueError("Airfoil name stations must have the same length as the radial nondimensional stations.")
         
+        self.small_angle_approx = small_angle_approx
         self.num_radial_elements = 100
         self.num_alpha_elements = 1000
         self.radius_rotor = radius_rotor
@@ -77,7 +79,7 @@ class Blade:
         theta_slope_root = self.pitch_params[2]
         a0 = theta_root
         a1 = theta_slope_root
-        a2 = (theta_tip - theta_root - theta_slope_root*(1 - self.radial_nondim[0])) / (1 - self.radial_nondim[0])**2
+        a2 = (theta_tip - theta_root - theta_slope_root * (1 - self.radial_nondim[0])) / (1 - self.radial_nondim[0]) ** 2
         quadratic_params = [a2, a1, a0]
         self.pitch = np.polyval(quadratic_params, self.radial_nondim - self.radial_nondim[0])
 
@@ -93,8 +95,8 @@ class Blade:
         self.cds_stations = np.array(self.cds_stations)
         alphas_stations = np.linspace(0.0, 10.0, 11)
         alphas = np.linspace(0.0, 10.0, self.num_alpha_elements)
-        self.cls = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cls_stations, kx=1, ky=1)(self.radial_nondim, alphas)
-        self.cds = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cds_stations, kx=1, ky=1)(self.radial_nondim, alphas)
+        self.cls = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cls_stations, kx=1, ky=3)(self.radial_nondim, alphas)
+        self.cds = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cds_stations, kx=1, ky=3)(self.radial_nondim, alphas)
         self.cls = np.array(self.cls)
         self.cds = np.array(self.cds)
         cl0 = self.cls[:,0]
@@ -121,7 +123,10 @@ class Blade:
         sigma = self.solidity[:, np.newaxis]
         # insane magic
         alpha = np.deg2rad(np.linspace(-10.0, 10.0, 2*self.num_alpha_elements-1))
-        constraint = 8 * r * (theta - alpha)**2 / sigma
+        if self.small_angle_approx:
+            constraint = 8 * r * (theta - alpha)**2 / sigma
+        else:
+            constraint = 8 * np.tan(theta - alpha) ** 2 / (sigma * r)
         cls_constrained = self.cls - constraint
         alpha_index = np.argmin(np.abs(cls_constrained), axis=1)
         # black magic
@@ -130,19 +135,11 @@ class Blade:
         self.cl[:] = self.cls[np.arange(len(self.cls)), alpha_index]
         self.cd[:] = self.cds[np.arange(len(self.cds)), alpha_index]
         self.inflow_angle = self.pitch - self.alpha
-        self.inflow = self.inflow_angle * self.radius_rotor
+        if self.small_angle_approx:
+            self.inflow = self.inflow_angle * self.radial_nondim
+        else:
+            self.inflow = np.tan(self.inflow_angle)
         self.induced_velocity = self.inflow * self.speed_tip
-        # r_1 = self.radial_nondim[0]
-        # theta_1 = self.pitch[0]
-        # sigma_1 = self.solidity[0]
-        # cls_1 = self.cls[0]
-        # constraint_1 = 8 * r_1 * (theta_1 - alpha)**2 / sigma_1
-        # plt.plot(alpha, cls_1, label='cls_1')
-        # plt.plot(alpha, constraint_1, label='constraint_1')
-        # plt.plot(alpha, cls_1 - constraint_1, label='cls_1 - constraint_1')
-        # plt.legend()
-        # plt.grid(True)
-        # plt.show()
 
     def calculate_thrust_coefficient(self):
         """Calculates:
@@ -177,7 +174,10 @@ class Blade:
         Args:
             density_air: The density of the air. [kg/m^3]
         """
+        self.thrust = self.thrust_coefficient * density_air * self.area_rotor * self.speed_tip**2
+        self.moment_blade = np.trapz(self.thrust / self.num_blades, self.radial)
         self.thrust_rotor = self.thrust_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**2
+        self.center_of_pressure = self.moment_blade / self.thrust_rotor * self.num_blades
         self.power_induced_rotor = self.power_induced_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**3
         self.power_profile_rotor = self.power_profile_coefficient_rotor * density_air * self.area_rotor * self.speed_tip**3
         self.power_rotor = self.power_induced_rotor + self.power_profile_rotor
