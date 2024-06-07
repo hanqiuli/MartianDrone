@@ -1,8 +1,10 @@
 import numpy as np
-from scipy.optimize import linprog
+from scipy.optimize import linprog, minimize
+import control
+import matplotlib.pyplot as plt
 
 # Constants
-g = 9.81  # m/s^2
+g = 3.71  # m/s^2
 
 # Parameters
 mass = 60.0  # kg
@@ -51,9 +53,6 @@ print("Max Moment Y:", max_moment_y, "N*m")
 print("Max Moment Z:", max_moment_z, "N*m")
 
 # Implement the previous linearized control code with these calculated moments
-import control
-import matplotlib.pyplot as plt
-
 # Transfer functions for the plant
 phi_tf = control.TransferFunction([arm_length], [5, 0, 0])
 theta_tf = control.TransferFunction([arm_length], [5, 0, 0])
@@ -75,42 +74,68 @@ def tune_pid_with_saturation(tf, kp, ki, kd, max_output):
     
     return closed_loop_tf, t, y
 
-# Set initial PID parameters for each axis
-attitude_pids = [10, 3, 10]
-kp_phi, ki_phi, kd_phi = attitude_pids
-kp_theta, ki_theta, kd_theta = attitude_pids
-kp_psi, ki_psi, kd_psi = attitude_pids
-kp_z, ki_z, kd_z = 10, 5, 20
+# Define the cost function to minimize
+def cost_function(params, tf, max_output):
+    kp, ki, kd = params
+    closed_loop_tf, _, _ = tune_pid_with_saturation(tf, kp, ki, kd, max_output)
+    info = control.step_info(closed_loop_tf)
+    overshoot = info['Overshoot']
+    settling_time = info['SettlingTime']
+    cost = overshoot + settling_time
+    return cost
 
-# Tune PID controllers with saturation
+# Initial PID parameters for each axis
+initial_params = [50, 50, 50]
+
+# Bounds for the PID parameters
+bounds = [(0, 30), (0, 30), (0, 30)]
+
+# Tune PID controllers using optimization
+result_phi = minimize(cost_function, initial_params, args=(phi_tf, max_moment_x), bounds=bounds)
+result_theta = minimize(cost_function, initial_params, args=(theta_tf, max_moment_y), bounds=bounds)
+result_psi = minimize(cost_function, initial_params, args=(psi_tf, max_moment_z), bounds=bounds)
+result_z = minimize(cost_function, initial_params, args=(Z_tf, hover_thrust_per_motor), bounds=bounds)
+
+# Get the optimized PID parameters
+kp_phi, ki_phi, kd_phi = result_phi.x
+kp_theta, ki_theta, kd_theta = result_theta.x
+kp_psi, ki_psi, kd_psi = result_psi.x
+kp_z, ki_z, kd_z = result_z.x
+
+print("Optimized PID parameters for Phi:", kp_phi, ki_phi, kd_phi)
+print("Optimized PID parameters for Theta:", kp_theta, ki_theta, kd_theta)
+print("Optimized PID parameters for Psi:", kp_psi, ki_psi, kd_psi)
+print("Optimized PID parameters for Z:", kp_z, ki_z, kd_z)
+
+# Tune PID controllers with optimized parameters
 closed_loop_phi, t_phi, y_phi = tune_pid_with_saturation(phi_tf, kp_phi, ki_phi, kd_phi, max_moment_x)
 closed_loop_theta, t_theta, y_theta = tune_pid_with_saturation(theta_tf, kp_theta, ki_theta, kd_theta, max_moment_y)
 closed_loop_psi, t_psi, y_psi = tune_pid_with_saturation(psi_tf, kp_psi, ki_psi, kd_psi, max_moment_z)
 closed_loop_z, t_z, y_z = tune_pid_with_saturation(Z_tf, kp_z, ki_z, kd_z, hover_thrust_per_motor)
 
-# Plot step response for closed-loop transfer functions with saturation
+# Plot step response for closed-loop transfer functions with optimized parameters
 plt.figure(figsize=(15, 10))
 plt.subplot(2, 2, 1)
 plt.plot(t_phi, y_phi)
-plt.title('Step Response - Closed Loop Phi (with saturation)')
+plt.title('Step Response - Closed Loop Phi (with optimized parameters)')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
 
 plt.subplot(2, 2, 2)
 plt.plot(t_theta, y_theta)
-plt.title('Step Response - Closed Loop Theta (with saturation)')
+plt.title('Step Response - Closed Loop Theta (with optimized parameters)')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
 
 plt.subplot(2, 2, 3)
 plt.plot(t_psi, y_psi)
-plt.title('Step Response - Closed Loop Psi (with saturation)')
+plt.title('Step Response - Closed Loop Psi (with optimized parameters)')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
 
 plt.subplot(2, 2, 4)
 plt.plot(t_z, y_z)
-plt.title('Step Response - Closed Loop Altitude (Z) (with saturation)')
+plt.title('Step Response - Closed Loop Altitude (Z) (with optimized parameters)')
 plt.xlabel('Time (s)')
 plt.ylabel('Amplitude')
 
@@ -138,4 +163,3 @@ print("Overshoot and Settling Time for Phi:", info_phi['Overshoot'], info_phi['S
 print("Overshoot and Settling Time for Theta:", info_theta['Overshoot'], info_theta['SettlingTime'])
 print("Overshoot and Settling Time for Psi:", info_psi['Overshoot'], info_psi['SettlingTime'])
 print("Overshoot and Settling Time for Z:", info_z['Overshoot'], info_z['SettlingTime'])
-
