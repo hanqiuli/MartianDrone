@@ -2,10 +2,45 @@ import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.integrate import odeint
+from scipy.integrate import odeint      # type: ignore
+from scipy.optimize import lsq_linear   # type: ignore
 
 sys.path.append('.')
 from legacy.DesignTools.environment_properties import ENV as ENVdict
+
+
+class ThrusterMapping:
+    def __init__(self, A, weights, x_min, x_max):
+        """
+        Initialize the solver with the control effectiveness matrix, weight matrix, and constraints.
+
+        :param A: Control effectiveness matrix (m x n)
+        :param weights: Weight matrix (n x n) or vector of weights (n)
+        :param x_min: Lower bounds for the thruster outputs (n-dimensional vector)
+        :param x_max: Upper bounds for the thruster outputs (n-dimensional vector)
+        """
+        self.A = A
+        self.W = np.diag(weights) if len(weights.shape) == 1 else weights
+        self.x_min = x_min
+        self.x_max = x_max
+
+    def optimal(self, b):
+        """
+        Solve the constrained weighted least squares problem.
+
+        :param b: Desired total thrust and moments (m-dimensional vector)
+        :return: Optimal thruster outputs (n-dimensional vector)
+        """
+        # Weighted A and b
+        WA = self.W @ self.A
+        Wb = self.W @ b
+
+        # Solve the constrained least squares problem
+        res = lsq_linear(WA, Wb, bounds=(self.x_min, self.x_max))
+
+        if res.success:
+            return res.x
+        raise ValueError("Constrained least squares solution could not be found.")
 
 
 class PIDController:
@@ -104,46 +139,57 @@ class HexacopterModel:
         # Calculate constants for the hexacopter
         self.b = self.propellor_radius ** 4 * self.propellor_thrust_coefficient * self.environment['rho'] * np.pi
         self.d = self.propellor_radius ** 5 * self.propellor_power_coefficient * self.environment['rho'] * np.pi
-        torque_thrust_ratio = self.b / self.d
+        self.torque_thrust_ratio = self.b / self.d
         
-        mass_skew_factor = np.random.uniform(-0.02, 0.02)  # the fraction that the base thrust is off of the hover thrust
+        mass_skew_factor = 0.0  # the fraction that the base thrust is off of the hover thrust
         self.estimated_mass = mass*(1+mass_skew_factor)
         self.estimated_weight = self.estimated_mass*self.environment['g']
         inertia_skew_factor = np.random.uniform(-0.02, 0.02)
         self.estimated_moment_inertia = np.max(moment_inertia*(1+inertia_skew_factor))
 
-        if thrust_to_weight_range is None:
-            raise ValueError('Thrust to weight range not specified, set as a list of two items [min, max]')
-        self.thrust_to_weight_range = thrust_to_weight_range
-
-        self.crashed = False
-
-        self.input_type_list = ['altitude', 'attitude', 'attitude', 'attitude']  
         self.setup_pids(pid_params)
         self.setup_motor_responses(motor_lag_term_time_constant)
 
         L = arm_length                      # alias for arm length to make matrix more readable
         L_2 = arm_length/2                  # alias for arm length over 2 to make matrix more readable
         Lsqrt3_2 = arm_length*np.sqrt(3)/2  # alias for arm length times sqrt(3) over 2 to make matrix more readable
-        tt_ratio = torque_thrust_ratio      # alias for torque to thrust ratio to make matrix more readable
+        tt_ratio = self.torque_thrust_ratio # alias for torque to thrust ratio to make matrix more readable
         self.thrust_map = np.array([
             [ 1,         1,          1,         1,           1,          1          ],
             [-L_2 ,     -L,         -L_2 ,      L_2 ,        L,          L_2        ],
             [-Lsqrt3_2,  0,          Lsqrt3_2,  Lsqrt3_2,    0,         -Lsqrt3_2   ],
             [-tt_ratio,  tt_ratio,  -tt_ratio,  tt_ratio,   -tt_ratio,   tt_ratio   ]
         ])
-        self.inverted_thrust_map = np.linalg.pinv(self.thrust_map)
 
+        if thrust_to_weight_range is None:
+            raise ValueError('Thrust to weight range not specified, set as a list of two items [min, max]')
+        self.thrust_to_weight_range = np.array(thrust_to_weight_range)
+        self.thruster_range = self.thrust_to_weight_range*self.estimated_weight/6
+
+        control_axis_weights = [
+            np.array([4, 10, 10, 3]),   # Nominal weights
+            np.array([8, 10, 10, 5]),   # Altitude recovery weights
+            np.array([1, 10, 10, 2])    # Attitude recovery weights
+        ]
+
+        self.inverted_thrust_map = [
+            ThrusterMapping(self.thrust_map, control_axis_weights[0], *self.thruster_range),
+            ThrusterMapping(self.thrust_map, control_axis_weights[1], *self.thruster_range),
+            ThrusterMapping(self.thrust_map, control_axis_weights[2], *self.thruster_range)
+        ]
+
+        self.input_type_list = ['altitude', 'attitude', 'attitude', 'attitude']
+
+        self.crashed = False
 
     # Hexacopter dynamics
-    def hexacopter_dynamics(self, state, t, thruster_inputs):
+    def hexacopter_dynamics(self, state, _, thruster_inputs):
 
         """
         Hexacopter dynamics model
 
         Positional arguments:
         state       [m, m, m, rad, rad, rad, m/s, m/s, m/s, rad/s, rad/s, rad/s]  array-like  state of the hexacopter [x, y, z, phi, theta, psi, x_dot, y_dot, z_dot, p, q, r]
-        t           [s]            float       time
         inputs      [T]          array-like  control inputs [t1, t2, t3, t4, t5, t6]
         """
 
@@ -224,17 +270,27 @@ class HexacopterModel:
             MotorResponse(time_constant),
             MotorResponse(time_constant)
         ]
-        
-    def clip_thrusters(self, thruster_inputs, thrust_range):
+    
+    def clip_inputs(self, inputs):
+        # relative to hover
+        thrust = np.clip(inputs[0], *(self.thrust_to_weight_range-1))
+
+        moment_max = 4 * (np.max(np.abs(self.thrust_to_weight_range-1)))*self.arm_length
+        moment = np.clip(inputs[1:3], -moment_max, moment_max)
+
+        torque_max = 6 * self.torque_thrust_ratio*np.mean(np.abs(self.thrust_to_weight_range-1))
+        torque = np.clip(inputs[3], -torque_max, torque_max)
+
+        return [thrust, *moment, torque]
+
+    def clip_thrusters(self, thruster_inputs):
         """
         Clip the thruster inputs to the thrust range. Note that the thrust range is in absolute terms, not in T/W
 
         Positional arguments:
         thruster_inputs     [-]           array-like  thruster inputs
-        thrust_range         [N]           array-like  thrust range
         """
-
-        return np.clip(thruster_inputs, *thrust_range)
+        return np.clip(thruster_inputs, *self.thruster_range)
 
     def mod_inputs(self, inputs):
 
@@ -250,7 +306,44 @@ class HexacopterModel:
 
         return inputs
 
-    def get_control(self, state, set_point, dt, thrust_range):
+    def get_flight_mode(self, state, set_point):
+
+        x, y, z, phi, theta, psi, xdot, ydot, zdot, p, q, r = state
+        target_x, target_y, target_z, target_phi, target_theta, target_psi, \
+            target_xdot, target_ydot, target_zdot, target_p, target_q, target_r = set_point
+
+        max_allowed_angle = 45 * np.pi/180
+        # Attitude recovery
+        if abs(phi) > max_allowed_angle or abs(theta) > max_allowed_angle:
+            return ['attitude', 2]  # axis weight set 2
+        
+        # Altitude recovery
+        if z < target_z - 20:
+            return ['altitude', 1]
+        
+        # Close to target
+        delta_x = target_x-x
+        delta_y = target_y-y
+        velocity_magnitude = np.linalg.norm([xdot, ydot])
+        landing_radius = 2
+        close_radius = 30
+        proximity = np.linalg.norm([delta_x, delta_y])
+            # Landing
+        if (proximity < landing_radius) and (velocity_magnitude < 1):
+            return ['land', 1]
+            # Stopping
+        if (proximity < close_radius):
+            return ['close', 0]
+        
+        # Unexpectedly low/climbing
+        if z < 20:
+            return ['climb', 1]
+            # Lower than expected
+
+        # Nominal flight
+        return ['nominal', 0]
+
+    def get_control(self, state, set_point, dt, weight_set):
 
         """
         Get the control inputs for the hexacopter, applying the proper modifications
@@ -263,7 +356,7 @@ class HexacopterModel:
         thrust_range [-]           array-like  thrust range for the thrusters (with respect to T/W)
         """
 
-        inputs = [0]*len(self.pid_control_to_input_map)
+        inputs = np.zeros_like(self.pid_control_to_input_map)
 
         for i, pid in enumerate(self.pid_list_control):
             state_id = self.pid_control_to_state_map[i]
@@ -273,21 +366,23 @@ class HexacopterModel:
             inputs[input_id] = pid.update(state[state_id], dt)
 
 
+        inputs = self.clip_inputs(inputs)
         inputs = self.mod_inputs(inputs)
-        # print(inputs) 
-        thruster_inputs = self.inverted_thrust_map @ np.array(inputs)
-        # print(thruster_inputs)
-        thruster_inputs = self.clip_thrusters(thruster_inputs, thrust_range)
-        # print(thruster_inputs)
-        # print()
+        thruster_inputs = self.inverted_thrust_map[weight_set].optimal(np.array(inputs))
+        thruster_inputs = self.clip_thrusters(thruster_inputs)
 
 
         for i, motor_response in enumerate(self.motor_response_list):
             thruster_inputs[i] = motor_response.get_actual_torque(thruster_inputs[i], dt)
 
-
-
         return thruster_inputs
+
+    def get_flight(self, state, set_point, dt):
+        flight_mode, weight_set = self.get_flight_mode(state, set_point)
+
+        thruster_inputs = self.get_control(state, set_point, dt, weight_set)
+
+        return thruster_inputs, flight_mode
 
     def simulate(self, times, initial_state, setpoints):
 
@@ -300,17 +395,25 @@ class HexacopterModel:
 
         self.crashed = False
         time_step = times[1] - times[0]
-        thrust_range = [(self.estimated_weight/6) * thrust_to_weight_value for thrust_to_weight_value in self.thrust_to_weight_range]
         states = [initial_state]
         thruster_values = []
+        flight_mode_list = []
+
         for i in range(1, len(times)):
             current_state = states[-1]
-            thruster_inputs = self.get_control(current_state, [setpoint[i] for setpoint in setpoints]
-                                      ,time_step, thrust_range)
+
+            # get inputs from flight plan and axis controller
+            thruster_inputs, flight_mode = self.get_flight(current_state, \
+                [setpoint[i] for setpoint in setpoints] ,time_step)
+            
+            # simulate to next timestep
             inputs = tuple([thruster_inputs],)
             new_state = odeint(self.hexacopter_dynamics, current_state, [0, time_step], args=inputs)[-1]
+
+            # save values for analysis
             states.append(new_state)
             thruster_values.append(thruster_inputs)
+            flight_mode_list.append(flight_mode)
 
             # Check if the drone has crashed
             if new_state[2] < 0:
@@ -319,15 +422,14 @@ class HexacopterModel:
            
         times = times[:len(states)]
         
-        return np.array(states), times, thruster_values
+        return np.array(states), times, thruster_values, flight_mode_list
     
     @staticmethod
-    def plot_figures(states, times, setpoints, thruster_values):
+    def plot_figures(states, times, setpoints, thruster_values, flight_mode_list):
 
         """
             Plot the simulation results
         """
-
 
         desired_x, desired_y, desired_z, desired_phi, desired_theta, desired_psi, \
         desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r = setpoints
@@ -345,6 +447,7 @@ class HexacopterModel:
         desired_q = desired_q[:len(times)]
         desired_r = desired_r[:len(times)]
 
+        # Position plot
         plt.figure()
         plt.subplot(2, 1, 1)
         plt.plot(times, states[:, 0], label='x')
@@ -367,6 +470,7 @@ class HexacopterModel:
         plt.tight_layout()
         plt.savefig('ControlAnalysis/figures/position.png', dpi=300)
 
+        # Attitude plot
         plt.figure()
         plt.subplot(3, 1, 1)
         plt.plot(times, states[:, 3], label='phi')
@@ -388,13 +492,14 @@ class HexacopterModel:
         plt.plot(times, states[:, 5], label='psi')
         plt.plot(times, desired_psi, 'r--', label='desired psi')
         plt.xlabel('Time [s]')
-        plt.ylabel('Pitch [rad]')
+        plt.ylabel('Yaw [rad]')
         plt.ylim([-3, 3])
         plt.legend()
 
         plt.tight_layout()
         plt.savefig('ControlAnalysis/figures/angles.png', dpi=300)
 
+        # Velocity plot
         plt.figure()
         plt.subplot(2, 1, 1)
         plt.plot(times, states[:, 6], label='x_dot')
@@ -416,6 +521,7 @@ class HexacopterModel:
         plt.tight_layout()
         plt.savefig('ControlAnalysis/figures/velocity.png', dpi=300)
 
+        # Attitude rate plot
         plt.figure()
         plt.subplot(3, 1, 1)
         plt.plot(times, states[:, 9], label='p')
@@ -445,6 +551,7 @@ class HexacopterModel:
         plt.tight_layout()
         plt.savefig('ControlAnalysis/figures/angular_velocity.png', dpi=300)
 
+        # Thruster plot
         plt.figure(figsize=(20, 4.8))
         plt.plot(times[:-1], thruster_values)
         plt.legend(['1', '2', '3', '4', '5', '6'])
@@ -452,6 +559,26 @@ class HexacopterModel:
         plt.ylabel('Thruster values [N]')
         plt.tight_layout()
         plt.savefig('ControlAnalysis/figures/thrusters.png', dpi=1200)
+
+        # Flight mode plot
+        flight_modes = sorted(list(set(flight_mode_list)))
+        mode_to_index = {status: index for index, status in enumerate(flight_modes)}
+        flight_mode_list_indexed = [mode_to_index[mode] for mode in flight_mode_list]
+
+        mode_matrix = np.zeros((len(flight_modes), len(flight_mode_list)), dtype=int)
+        mode_matrix[flight_mode_list_indexed, np.arange(len(flight_mode_list))] = 1
+
+        plt.figure(figsize=(20, 4.8))
+        for row_index, mode in enumerate(flight_modes):
+            plt.plot(times[:-1], mode_matrix[row_index], linestyle='--', label=mode)
+            plt.fill_between(times[:-1], mode_matrix[row_index], where=mode_matrix[row_index] == 1, 
+                    interpolate=True, alpha=0.3, hatch='//')
+        plt.legend()
+        plt.xlabel('Time [s]')
+        plt.ylabel('Active [True/False]')
+        plt.tight_layout()
+        plt.savefig('ControlAnalysis/figures/flight_mode.png', dpi=1200)
+
 
         plt.close('all')
 
@@ -461,42 +588,44 @@ if __name__ == "__main__":
     mass = 60.0
     moment_inertia = np.diag([5, 5, 8])
     moment_inertia_prop = 0.01
-    pid_params = [[20, 2, 20, 3, 10], [6, 0.3, 4, 10], [6, 0.3, 4, 10], [8, 0.4, 6, 10]]
+    pid_params = [[20, 2, 20, 3, 10], [6, 0.3, 4, 10], [6, 0.3, 4, 10], [8, 0.4, 16, 10]]
     torque_thrust_ratio = 0.1
     omega_thrust_ratio = 0.1
     ENV = ENVdict
 
-    thrust_to_weight_range = [0.6, 1.2]
+    thrust_to_weight_range = [0.6, 1.3]
 
     hexacopter = HexacopterModel(mass, moment_inertia, moment_inertia_prop, pid_params, \
         propellor_power_coefficient=0.5, propellor_radius=1.3, propellor_thrust_coefficient=1.2, thrust_to_weight_range=thrust_to_weight_range, ENV=ENV)
 
-    delta_t = 0.05
-    t = np.arange(0, 500, delta_t)
+    delta_t = 0.02
+    t = np.arange(0, 350, delta_t)
+
     initial_state = np.zeros(12)
-    # initial altitude is nonzero
-    initial_state[2] = 80
-    initial_state[5] = np.pi
+    initial_state[2] = 5
 
-    desired_x = np.zeros_like(t)
-    desired_y = np.zeros_like(t)
-    # desired_z = np.ones_like(t) * 50 # should hover
+    desired_x = np.ones_like(t)*150
+    desired_y = np.ones_like(t)*100
 
-    desired_z = np.ones_like(t) * np.sin(t*2*np.pi /30) * 5 + 80
-    # desired_z[t <= 5] = np.linspace(0, 20, len(t[t <= 5]))
-    # desired_z[(t > 5) & (t <= 10)] = 20
-    # desired_z[(t > 10) & (t <= 20)] = 30
-    # desired_z[(t > 20) & (t <= 30)] = 10
-    # desired_z[(t > 30) & (t <= 32)] = 20
-    # desired_z[t > 32] = 0
+    desired_z = np.zeros_like(t)
+    desired_z[t <= 5] = np.linspace(0, 20, len(t[t <= 5]))
+    desired_z[(t > 5) & (t <= 10)] = 20
+    desired_z[(t > 10) & (t <= 30)] = 30
+    desired_z[(t > 30) & (t <= 42)] = 20
+    desired_z[(t > 42) & (t <= 60)] = 60
+    desired_z[(t > 60) & (t <= 250)] = np.sin(t[(t > 60) & (t <= 250)]*np.pi/10)*5 + 50
+    desired_z[(t > 250)] = 80
 
-    desired_phi = np.sin(t*2*np.pi /20)/10
-    # desired_phi = np.zeros_like(t)
-    desired_theta = np.ones_like(t) * 0
-    # desired_theta = np.zeros_like(t)
-    # desired_theta = np.sin(t/2 + np.pi)/10
-    # desired_psi = np.zeros_like(t)
-    desired_psi = np.ones_like(t)*np.pi * 0
+    desired_phi = np.zeros_like(t)
+    desired_phi[(t > 100)] = np.sin(t[t > 100]*np.pi/11)*7*np.pi/180
+
+    desired_theta = np.zeros_like(t)
+    desired_theta[(t > 150)] = np.sin(t[t > 150]*np.pi/15+2)*9*np.pi/180
+
+    desired_psi = np.zeros_like(t)
+    desired_psi[(t > 180) & (t <= 220)] = np.sin(t[(t > 180) & (t <= 220)]*np.pi/12+2)*9*np.pi/180
+    desired_psi[(t > 220)] = np.linspace(0, 2*np.pi, len(t[t > 220]))
+
     desired_xdot = np.zeros_like(t)
     desired_ydot = np.zeros_like(t)
     desired_zdot = np.zeros_like(t)
@@ -508,5 +637,5 @@ if __name__ == "__main__":
          desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r]
 
 
-    states, times, thruster_values = hexacopter.simulate(t, initial_state, desired_states)
-    hexacopter.plot_figures(states, times, desired_states, thruster_values)
+    states, times, thruster_values, flight_mode_list = hexacopter.simulate(t, initial_state, desired_states)
+    hexacopter.plot_figures(states, times, desired_states, thruster_values, flight_mode_list)

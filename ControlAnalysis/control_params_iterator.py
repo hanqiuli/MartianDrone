@@ -109,13 +109,13 @@ if __name__ == "__main__":
     bounds = list(zip(lower_bounds.flatten(), higher_bounds.flatten()))
     
     # Perform global optimization using dual annealing
-    print("starting")
-    result = optimize.dual_annealing(getRMS, bounds)
-    print(result)
+    #print("starting")
+    #result = optimize.dual_annealing(getRMS, bounds)
+    #print(result)
 
     # Reshape the result back to the original 4x5 shape
-    optimized_params = result.x.reshape((4, 5))
-    print(optimized_params)
+    #optimized_params = result.x.reshape((4, 5))
+    #print(optimized_params)
 
     mass = 60.0
     moment_inertia = np.diag([5, 5, 8])
@@ -123,14 +123,19 @@ if __name__ == "__main__":
     torque_thrust_ratio = 0.1
     omega_thrust_ratio = 0.1
     ENV = ENVdict
-    thrust_to_weight_range = [0.6, 1.2]    
+    thrust_to_weight_range = [0.6, 1.5]    
+    
 
-    pid_params = optimized_params
+    #pid_params = optimized_params
+    pid_params = np.array([ [11.98595877,  4.93789508, 27.97515155, 16.86759748, np.inf],
+                            [ 3.95433974,  7.06347748,  2.30512318, 22.40876810, np.inf],
+                            [ 3.95433974,  7.06347748,  2.30512318, 22.40876810, np.inf],
+                            [10.25419113,  5.83153413, 11.13413042,  8.72583077, np.inf]])
     hexacopter = HexacopterModel(mass, moment_inertia, moment_inertia_prop, pid_params, \
             torque_thrust_ratio=torque_thrust_ratio, thrust_to_weight_range=thrust_to_weight_range, \
             omega_thrust_ratio=omega_thrust_ratio, ENV=ENV)
 
-    
+
     initial_state = np.zeros(12)
 
     # Simulate the response of the closed-loop system
@@ -139,7 +144,3 @@ if __name__ == "__main__":
     plt.plot(times[:-1], thruster_values)
     plt.legend(['1', '2', '3', '4', '5', '6'])
     plt.show()
-
-
-    
-    
