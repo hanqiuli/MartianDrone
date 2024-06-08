@@ -1,0 +1,83 @@
+import numpy as np
+from scipy.optimize import differential_evolution, NonlinearConstraint
+from blade import Blade
+from rotor_blade import calculate_blade_properties
+
+############## INPUTS ################
+number_of_blades = 3  # Range from 2-8
+radial_stations = [0.08, 0.25, 0.75, 1.00]  # Fixed
+airfoils = ['Diamond', 'Triangle', 'DEP 0.5', 'DEP 0.7']  # Fixed
+rotor_radius = 1.20
+maximum_alpha = 10
+gravitational_acceleration = 3.71
+mass = 49 # kg
+small_angle_approximation = False
+######################################
+
+print("optimizer is cooking something...")
+
+# Define the objective function
+def objective(params):
+    pitch_params = params[:3]
+    chord_params = params[3:7]
+
+    blade = Blade(
+        radius_rotor=rotor_radius,
+        num_blades=number_of_blades,
+        radial_nondim_stations=radial_stations,
+        chord_nondim_stations=chord_params,
+        pitch_params=pitch_params,
+        airfoil_name_stations=airfoils,
+        small_angle_approx=small_angle_approximation
+    )
+    calculate_blade_properties(blade)
+
+    minimize_objective = blade.power_rotor
+
+    return minimize_objective
+
+# Define the constraint function to ensure positive power_rotor
+def power_constraint(params):
+    pitch_params = params[:3]
+    chord_params = params[3:7]
+
+    blade = Blade(
+        radius_rotor=rotor_radius,
+        num_blades=number_of_blades,
+        radial_nondim_stations=radial_stations,
+        chord_nondim_stations=chord_params,
+        pitch_params=pitch_params,
+        airfoil_name_stations=airfoils,
+        small_angle_approx=small_angle_approximation
+    )
+    calculate_blade_properties(blade)
+
+
+    return blade.thrust_rotor, (blade.thrust_coefficient_rotor / blade.solidity_rotor), blade.solidity_rotor, max(blade.reynolds), min(blade.reynolds), blade.power_rotor
+
+
+
+lb = [mass*gravitational_acceleration/6, -np.inf, -np.inf, -np.inf, -np.inf, 0]
+ub = [np.inf, 0.16, 0.25, 25000, 10000, np.inf]
+
+# Create a NonlinearConstraint object to enforce positive power_rotor
+nonlinear_constraint = NonlinearConstraint(power_constraint, lb, ub)
+
+
+# Set the bounds for pitch and chord parameters
+bounds = [
+    (0.05, 0.3), (0.05, 0.3), (-0.5, -0.05),  # Pitch parameters
+    (0.0, 2*radial_stations[0] * np.tan(np.pi / number_of_blades)), (0.0, 2*radial_stations[1] * np.tan(np.pi / number_of_blades)), (0.0, 2*radial_stations[2] * np.tan(np.pi / number_of_blades)), (0.0, 2*radial_stations[3] * np.tan(np.pi / number_of_blades))  # Chord parameters
+]
+
+# Differential Evolution optimization
+result = differential_evolution(objective, bounds, constraints=nonlinear_constraint)
+
+optimal_params = result.x
+optimal_pitch_params = optimal_params[:3]
+optimal_chord_params = optimal_params[3:7]
+
+print("Optimal Pitch Parameters:", ', '.join(map(str, optimal_pitch_params)))
+print("Optimal Chord Parameters:", ', '.join(map(str, optimal_chord_params)))
+print("Minimum power:", result.fun)
+
