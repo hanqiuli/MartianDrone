@@ -46,7 +46,7 @@ voltage_per_cell = 3.025 #Voltage at max power per cell
 cell_area = 30.18 #Cell surface area [cm^2]
 solar_array_density = 2 #Density of solar array [kg/m^2] Typical value, used by MSH, alligns with data from Sparkwing Solar Panel	and https://exoterracorp.com/products/power/ 
 average_power_required = get_average_power_mission()
-print('required_average_power', average_power_required)
+# print('required_average_power', average_power_required)
 
 #Calculate required power generation at BOL conditions (take into account power losses and radiation degradation rate) Note: dust degradation not taken into account
 power_generation_EOL = average_power_required/(battery_efficiency*(1-harness_loss))
@@ -131,7 +131,7 @@ plt.show()
 #innputs
 from solar_flux_analysis import get_avg_solar_flux
 baseline_power = 30
-energy_required_flight_Wh = 1740
+energy_required_flight_Wh = 1655
 
 energy_required_flight= energy_required_flight_Wh*3600 #Energy required to charge battery for one flight [J]
 days, flux_yearly_profile = get_avg_solar_flux('Solar_Flux.txt')

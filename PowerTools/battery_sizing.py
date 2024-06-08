@@ -16,7 +16,7 @@ from power_load_profile import get_power_usage_profile
 #Define inputs
 power_generation_profile = get_power_generation_profile()
 power_usage_profile = get_power_usage_profile()
-battery_efficiency = 0.99 #Transmission efficiency between battery and load
+battery_efficiency = 0.99 #Battery efficiency of Li ion is near 100%
 depth_of_discharge = 0.9 #90% DOD is acceptable for 1000 cycles https://www.researchgate.net/figure/Depth-of-discharge-versus-cycle-life-of-the-lithium-ion-battery_fig4_318292540
 EOL_capacity_factor = 0.9 #90% of capacity available after 700 cycles
 harness_loss = 0.02 #Total cable loss, based on cable_sizing analysis
@@ -53,11 +53,6 @@ plt.show()
 #Net power profile can now be used to size the battery
 #Get cumulative net energy over the day, giving the energy difference from the start of the day
 energy_state_profile = np.cumsum(net_power_profile) 
-plt.plot(time_series, energy_state_profile)
-plt.title('Energy over a 2 day mission')
-plt.xlabel('Mission timeline [s]')
-plt.ylabel('Energy state [J]')
-plt.show()
 
 #Calculate required battery capacity
 battery_capacity = np.max(energy_state_profile)-np.min(energy_state_profile)
@@ -103,14 +98,14 @@ def get_battery_mass():
 print('Number of cells per string', n_cells_series)
 print('Number of strings', n_strings)
 print('Number of cells', n_cells)
-print('battery_mass', battery_mass)
+print('battery_mass [kg]', battery_mass)
 
 #Check maximum charge/discharge rate are acceptable
 power_charge_max = np.max(net_power_profile)
 power_discharge_max = np.min(net_power_profile)
 required_charge_rate_max = 3600 / (actual_battery_capacity/power_charge_max)
 required_discharge_rate_max = -3600 / (actual_battery_capacity/power_discharge_max)
-print('peak discharge rate', required_discharge_rate_max)
+print('peak discharge rate [C]', np.round(required_discharge_rate_max,2))
 
 if required_charge_rate_max<cell_max_charge_rate and required_discharge_rate_max<cell_max_discharge_rate:
     print('Cell charge performance is acceptable')
