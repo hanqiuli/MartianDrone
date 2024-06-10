@@ -1,4 +1,5 @@
 import sys
+from turtle import setposition
 
 import numpy as np
 from scipy.optimize import lsq_linear   # type: ignore
@@ -34,15 +35,16 @@ class ThrusterMapping:
         Wb = self.W @ b
 
         # Solve the constrained least squares problem
-        res = lsq_linear(WA, Wb, bounds=(self.x_min, self.x_max))
+        res = lsq_linear(WA, Wb, bounds=(self.x_min, self.x_max), method='bvls')
 
         if res.success:
             return res.x
+        print(res)
         raise ValueError("Constrained least squares solution could not be found.")
     
 
 class PIDController:
-    def __init__(self, Kp, Ki, Kd, wind_up_limit, *, set_point=0, clip_limit=np.Infinity, PID_type='altitude'):
+    def __init__(self, Kp, Ki, Kd, wind_up_limit, clip_limit=np.Infinity, *, set_point=0, PID_type='altitude'):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -70,7 +72,8 @@ class PIDController:
 
         return np.clip(self.Kp * error \
                        + self.Ki * self.integral \
-                       + self.Kd * derivative, -self.clip_limit, self.clip_limit)
+                       + self.Kd * derivative, \
+                        -self.clip_limit, self.clip_limit)
 
 
 class FlightController:
@@ -92,7 +95,7 @@ class FlightController:
         self.environment = ENV if ENV else ENVdict
 
         self.setup_pids(pid_params)
-        self.last_control_loop_index = 0
+        self.last_control_loop_index = -1
         
         self.mass = estimated_mass
         self.weight = self.mass*self.environment['g']
@@ -120,9 +123,9 @@ class FlightController:
         self.thruster_range = self.thrust_to_weight_range*self.weight/6
 
         control_axis_weights = [
-            np.array([4, 10, 10, 3]),   # Nominal weights
-            np.array([8, 10, 10, 5]),   # Altitude recovery weights
-            np.array([1, 10, 10, 2])    # Attitude recovery weights
+            np.array([10, 5, 5, 5]),   # Nominal weights
+            np.array([13, 5, 5, 5]),   # Altitude recovery weights
+            np.array([2, 8, 8, 8])    # Attitude recovery weights
         ]
 
         self.inverted_thrust_map = [
@@ -180,31 +183,36 @@ class FlightController:
         ]
         control_loop_2 = [
             [5],
-            [4, 0],
-            [3, 1],
+            [4, 7, 0],
+            [3, 6, 1],
             [2]
         ]
         control_loop_3 = [
             [8],
-            [4, 0],
-            [3, 1],
+            [4, 7, 0],
+            [3, 6, 1],
             [2]
         ]
         self.control_loop = [control_loop_0, control_loop_1, control_loop_2, control_loop_3]
     
-    def transform_state_rotation(self, state):
+    def transform_state_rotation(self, state, psi):
         '''Transforms the state from the intertial frame to the body frame'''
-        
+
         # 2D rotation matrix using phi as angle
-        phi = state[5]
-        rotation_matrix = np.array([np.cos(phi), -np.sin(phi)], 
-                                   [np.sin(phi),  np.cos(phi)])
+        rotation_matrix = np.array([[np.cos(psi), np.sin(psi)], 
+                                   [-np.sin(psi),  np.cos(psi)]])
         
         # modify x and y
-        state[0:2] = np.dot(rotation_matrix, state[0:2])
+        if np.any(np.isnan(state[0:2])):
+            pass
+        else:
+            state[0:2] = np.dot(rotation_matrix, state[0:2])
 
         # modify x_dot and y_dot
-        state[6:8]  = np.dot(rotation_matrix, state[6:8])
+        if np.any(np.isnan(state[6:8])):
+            pass
+        else:
+            state[6:8]  = np.dot(rotation_matrix, state[6:8])
 
         return state
 
@@ -212,10 +220,10 @@ class FlightController:
         '''Clips the non-dimensional thrust differential and non-dimensional moments'''
         thrust = np.clip(inputs[0], *(self.thrust_to_weight_range-1))
 
-        moment_max = 4 * (np.max(np.abs(self.thrust_to_weight_range-1)))*self.arm_length
+        moment_max = (np.max(np.abs(self.thrust_to_weight_range-1)))*self.arm_length / 4
         moment = np.clip(inputs[1:3], -moment_max, moment_max)
 
-        torque_max = 6 * self.torque_thrust_ratio*np.mean(np.abs(self.thrust_to_weight_range-1))
+        torque_max = 6 * np.mean(np.abs(self.thrust_to_weight_range-1)) / self.torque_thrust_ratio
         torque = np.clip(inputs[3], -torque_max, torque_max)
 
         return [thrust, *moment, torque]
@@ -243,17 +251,18 @@ class FlightController:
         """
         inputs = np.zeros(4)
 
-        transformed_state = self.transform_state_rotation(np.array(state))
-        transformed_setpoint = self.transform_state_rotation(np.array(set_point))
-        error = transformed_state - transformed_setpoint
+        transformed_state = self.transform_state_rotation(np.array(state, dtype=float), psi=state[5])
+        transformed_setpoint = self.transform_state_rotation(np.array(set_point, dtype=float), psi=state[5])
 
         # Reset PIDs on switch to control loop
         if control_loop_index != self.last_control_loop_index:
-            self.last_control_loop_index  = control_loop_index
-            for i, pid in enumerate(self.pid_list):
-                pid.integral = 0.0
-                pid.previous_error = 0.0 #TODO: Check for shock on control loop switching
 
+            for i, pid in enumerate(self.pid_list):
+                if not any(i in loop for loop in self.control_loop[self.last_control_loop_index]):
+                    pid.integral = 0.0
+                    pid.previous_error = 0.0 #TODO: Check for shock on control loop switching
+            
+            self.last_control_loop_index  = control_loop_index
         # Get target input by going through every control loop
         for i, loop in enumerate(self.control_loop[control_loop_index]):
             next_target = transformed_setpoint[self.pid_to_state_map[loop[0]]]
@@ -262,7 +271,7 @@ class FlightController:
             for pid_index in loop:
                 # Keep track of intermediate PID targets
                 state_index = self.pid_to_state_map[pid_index]
-                if np.isnan(set_point[state_index]):
+                if np.isnan(transformed_setpoint[state_index]):
                     set_point[state_index] = next_target
                 
                 # Get PID and update to next target
@@ -272,13 +281,15 @@ class FlightController:
                 next_target = pid.update(transformed_state[self.pid_to_state_map[pid_index]], dt)
 
             inputs[i] = next_target
-                
+
         # Convert axis inputs to thruster inputs
         inputs = self.clip_inputs(inputs)
         inputs = self.scale_inputs(inputs)
         thruster_inputs = self.inverted_thrust_map[weight_set].optimal(np.array(inputs))
         
-        return thruster_inputs, set_point
+
+        
+        return thruster_inputs, set_point, inputs
 
         
 

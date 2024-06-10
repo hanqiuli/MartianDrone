@@ -2,39 +2,17 @@ import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.integrate import odeint      # type: ignore
 
 sys.path.append('.')
 from legacy.DesignTools.environment_properties import ENV as ENVdict
-
-
-class MotorResponse:
-    def __init__(self, time_constant):
-        """
-        Initialize the FirstOrderLag class.
-
-        :param time_constant: The time constant of the first-order lag.
-        :param dt: The timestep for the simulation.
-        """
-        self.time_constant = time_constant
-        self.output = 35.0  # Initial output value
-
-    def get_actual_torque(self, input_torque, dt):
-        """
-        Update the output based on the input signal.
-
-        :param input_torque: The current input signal value.
-        :return: The updated output signal value.
-        """
-        self.output += min(dt / self.time_constant, 1) * (input_torque - self.output)
-        return self.output
+from motor_response import MotorResponse
 
 
 class HexacopterModel:
     """Hexacopter dynamics model"""
     def __init__(self, mass, moment_inertia, moment_inertia_prop, *, \
             propellor_thrust_coefficient, propellor_power_coefficient, propellor_radius, \
-            thrust_to_weight_range=None, ENV=None, arm_length=2, motor_lag_term_time_constant=0.1):
+            thrust_to_weight_range=None, ENV=None, arm_length=2, motor_natural_frequency=20, motor_damping=1):
         """
         Class initializer
 
@@ -54,7 +32,7 @@ class HexacopterModel:
 
         self.environment = ENV if ENV else ENVdict
 
-        self.setup_motor_responses(motor_lag_term_time_constant)
+        self.setup_motor_responses(motor_natural_frequency, motor_damping)
 
         self.mass = mass
         self.moment_inertia = moment_inertia
@@ -132,19 +110,18 @@ class HexacopterModel:
         return [x_dot, y_dot, z_dot, phi_dot, theta_dot, psi_dot, x_ddot, y_ddot, z_ddot, p_dot, q_dot, r_dot]
 
     # Thruster dynamics
-    def setup_motor_responses(self, time_constant):
-
+    def setup_motor_responses(self, *args):
         """
-        Initialize the motor response lags for the hexacopter, at a given time constant
+        Initialize the motor response lags for the hexacopter
         """
 
         self.motor_response_list = [
-            MotorResponse(time_constant),
-            MotorResponse(time_constant),
-            MotorResponse(time_constant),
-            MotorResponse(time_constant),
-            MotorResponse(time_constant),
-            MotorResponse(time_constant)
+            MotorResponse(*args),
+            MotorResponse(*args),
+            MotorResponse(*args),
+            MotorResponse(*args),
+            MotorResponse(*args),
+            MotorResponse(*args)
         ]
 
     def clip_thrusters(self, thruster_inputs):
@@ -157,7 +134,7 @@ class HexacopterModel:
         return np.clip(thruster_inputs, *self.thruster_range)
 
     # Full simulation
-    def simulate_response(self, state, _, thruster_inputs, dt):
+    def simulate_response(self, _, state, thruster_inputs, dt):
         '''Full model simulation involving both the kinematics as well as the thruster response and limits'''
         # thruster response
         thruster_inputs = self.clip_thrusters(thruster_inputs)
