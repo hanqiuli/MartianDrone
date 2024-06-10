@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 
 sys.path.append('.')
-import ControlAnalysis.final_control as fc
+import ControlAnalysis.Legacy_Control.final_control as fc
 
 
 class TestMotorResponse:
