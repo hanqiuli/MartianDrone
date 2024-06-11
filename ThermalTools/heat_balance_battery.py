@@ -336,18 +336,20 @@ class BatteryHeatTransfer:
         heat_rate_out = self.heat_rate_out(temperature_battery)
         return heat_rate_ext + heat_rate_int - heat_rate_conv - heat_rate_out
 
-    def temperature_time_derivative(self, temperature_battery, t):
+    def temperature_time_derivative(self, t, temperature_battery, t_list):
         """
         Calculates the derivative of the temperature of the battery over time.
 
         Args:
-            temperature_battery: The current temperature of the battery [K].
             t: The current time [s].
+            temperature_battery: The current temperature of the battery [K].
 
         Returns:
             The derivative of the temperature of the battery over time [K/s].
         """
-        return 1/(self.battery_mass*self.battery_heat_capacity)*self.heat_rate_balance(temperature_battery)
+        index = np.argmin(np.abs(t_list-t))
+        temperature_derivative = (1/(self.battery_mass*self.battery_heat_capacity)*self.heat_rate_balance(temperature_battery))
+        return temperature_derivative[index]
 
     def solve_temperature_time(self):
         """
@@ -415,7 +417,11 @@ class BatteryHeatTransfer:
        23.33333333, 23.41666667, 23.5       , 23.58333333, 23.66666667,
        23.75      , 23.83333333, 23.91666667])
 
-        temperature = solve_ivp(self.temperature_time_derivative, y0=[self.temperature_atmosphere[0]], t_span=[t[0], t[-1]], t_eval=t)
+        t *= 3600
+        y0 = np.array([self.temperature_atmosphere[0]])
+        y0 = np.array([260])
+        print(y0.shape)
+        temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_span=[t[0], t[-1]], t_eval=t, args=[t]).y.T
         return temperature, t
     
     def plot_temp_time(self):
