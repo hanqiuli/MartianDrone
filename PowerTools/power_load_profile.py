@@ -47,36 +47,36 @@ variable thermal power usage f(temperature)
 #Iteration 1
 profile_power = {
     # 'name': (power [W])
-    'propulsive_takeoff': 5418,
-    'propulsive_takeoff_with_rock': 5418,
-    'propulsive_cruise': 3755,
-    'propulsive_cruise_with_rock': 3755,
-    'propulsive_scanning': 3755,
-    'propulsive_landing': 5418,
-    'propulsive_landing_with_rock': 5418,
+    'propulsive_takeoff': 5682,
+    'propulsive_takeoff_with_rock': 5682,
+    'propulsive_cruise': 4268,
+    'propulsive_cruise_with_rock': 4268,
+    'propulsive_scanning': 4268,
+    'propulsive_landing': 5682,
+    'propulsive_landing_with_rock': 5682,
     # 'propulsive_hover': 4500,
-    'payload_collection': 21,
+    'payload_collection': 35,
     'communication': 1,
     'payload_scanning': 10,
     'thermal_propulsion': 0,
-    'thermal_avionics': 10,
     'thermal_battery': 20,
-    'avionics': 10,
+    'thermal_avionics':0,
+    'avionics': 44,
 }
 
 profile_time_2_day_mission = {
     # 'name': (durations [s])
     'morning_rest': 12*3600, #Assume takeoff at 8am, will have to optimze this somehow
-    'takeoff': 30,
-    'cruise': 1100,
+    'takeoff': 45,
+    'cruise': 1000,
     'scanning': 600,
-    'landing': 30,
+    'landing': 45,
     'collection': 120,
     'mid_mission_rest': time_mars_day,
-    'takeoff_with_rock': 30,
-    'cruise_with_rock': 1100,
-    'landing_with_rock': 30,
-    'afternoon_rest': 2*time_mars_day-12*3600-30-1100-600-30-120-time_mars_day-30-1100-30
+    'takeoff_with_rock': 45,
+    'cruise_with_rock': 1000,
+    'landing_with_rock': 45,
+    'afternoon_rest': 2*time_mars_day-12*3600-45-1000-600-45-120-time_mars_day-45-1000-45
 }
 
 #Combine powers to form power usage states
