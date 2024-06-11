@@ -1,8 +1,11 @@
 import numpy as np
 from sympy.solvers import solve
 from sympy import Symbol
-from scipy.integrate import odeint
+from scipy.integrate import odeint, solve_ivp
 import matplotlib.pyplot as plt
+
+power1 = 5482
+power2 = 4112
 
 # Physical/environmental constants
 g = 3.71             # Gravitational acceleration [m/s^2]
@@ -11,7 +14,7 @@ sigma = 5.67e-8           # Stefan-Boltzmann constant [W/(m^2*K^4)]
 #HOT
 rho_air = 1.3e-2          # Air density [kg/m^3]
 dyn_vsc_air = 1.4e-5      # Air dynamic viscosity [Pa*s]
-temp_amb = 269            # Ambient temperature [K]
+temp_amb = 274            # Ambient temperature [K]
 cp_air = 8.3e+2           # Specific heat capacity of air [J/(kg*K)]
 
 #COLD
@@ -31,13 +34,13 @@ class FinParameters:
         # Motor parameters
         self.heat_capacity_motor = 900.0  # Motor specific heat capacity [J/(kg*K)]
         self.conductivity_motor = 209.0   # Motor thermal conductivity [W/(m*K)]
-        self.diameter_motor = 0.08        # Motor diameter [m]
-        self.velocity_downwash_rotor = 22  # Rotor downwash velocity [rad/s]
+        self.diameter_motor = 0.06        # Motor diameter [m]
+        self.velocity_downwash_rotor = 15  # Rotor downwash velocity [rad/s]
 
         # Fin parameters
-        self.length_fin = 0.05             # Fin length [m]
-        self.height_fin = 0.20             # Fin height [m]
-        self.thickness_fin = 0.002         # Fin thickness [m]
+        self.length_fin = 0.051             # Fin length [m]
+        self.height_fin = 0.17             # Fin height [m]
+        self.thickness_fin = 0.003         # Fin thickness [m]
         self.num_fins = num_fins           # Number of fins [-]
         self.density_fin = 2700            # Fin density [kg/m^3]
 
@@ -128,6 +131,12 @@ thermal_resistance = fins.calc_thermal_resistance()
 f_re = 1-fins.calculate_gebhart()
 print(f_re)
 
+time_n = 45*2+1000+600
+prop_power = np.ones(time_n)
+prop_power[0:45] = power1
+prop_power[45:time_n-45] = power2
+prop_power[time_n-45:time_n] = power1
+
 heat_balance_hot = {
     'temperature_atmosphere': temp_amb,  # [K] - Atmospheric temperature
     'irradiance_sun': 646,  # [W/m^2] - Solar irradiance
@@ -142,13 +151,13 @@ heat_balance_hot = {
     'stefan_boltzmann_constant': 5.6704e-8,  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
     # motor properties
-    'heat_rate_internal': {'motor': 0.25*5500/6 * 3/4},  # [W] - Heat from internal sources
+    'heat_rate_internal': 0.20*prop_power/6,  # [W] - Heat from internal sources
 
     'coefficient_resistance': thermal_resistance,  # [K/W] - Thermal Resistance
     'area_total': area_total,  # [m^2] - Total surface area of the motor
     'f_re': f_re,  # [-] - View factor for emitted radiation
     'emissivity_motor': 0.95,  # [-] - Emissivity of the motor
-    'motor_mass': 0.5+fin_mass,  # [kg] - Mass of the motor
+    'motor_mass': 0.65+fin_mass,  # [kg] - Mass of the motor
     'motor_heat_capacity': 1100,  # [J/kg*K] - Heat capacity of the motor
 
     # Conductivity properties
@@ -173,7 +182,7 @@ class MotorHeatTransfer:
         self.stefan_boltzmann_constant = heat_dictionary['stefan_boltzmann_constant']  # Stefan-Boltzmann constant [W/(m^2*K^4)]
 
         # Motor properties
-        self.heat_rate_internal = sum(heat_dictionary['heat_rate_internal'].values())  # Total internal heat [W]
+        self.heat_rate_internal = heat_dictionary['heat_rate_internal']  # Total internal heat [W]
         self.coefficient_resistance = heat_dictionary['coefficient_resistance']  # Heat transfer resistance coefficient [W/K]
         self.area_total = heat_dictionary['area_total']  # Total motor surface area [m^2]
         self.f_re = heat_dictionary['f_re']  # View factor for emitted radiation [-]
@@ -266,8 +275,8 @@ class MotorHeatTransfer:
         heat_rate_conv = self.heat_rate_convection(temperature_motor)
         heat_rate_out = self.heat_rate_out(temperature_motor)
         return heat_rate_ext + heat_rate_int - heat_rate_conv - heat_rate_out
-
-    def temperature_time_derivative(self, temperature_motor, t):
+    
+    def temperature_time_derivative(self, t, temperature_motor, t_list):
         """
         Calculates the derivative of the temperature of the motor over time.
 
@@ -278,29 +287,36 @@ class MotorHeatTransfer:
         Returns:
             Derivative of motor temperature over time [K/s].
         """
-        return 1 / (self.motor_mass * self.motor_heat_capacity) * self.heat_rate_balance(temperature_motor)
+        index = np.argmin(np.abs(t_list-t))
+        temperature_derivative = ( 1 / (self.motor_mass * self.motor_heat_capacity) * self.heat_rate_balance(temperature_motor))
+        return temperature_derivative[index]
 
     def solve_temperature_time(self):
         """
-        Solves the heat balance equation to find the temperature of the motor over time.
+        Solves the heat balance equation to find the temperature of the battery over time.
 
         Returns:
-            Tuple containing temperature of the motor over time [K] and time array [s].
+            The temperature of the battery over time [K] [s].
         """
-        t = np.linspace(0, 20*60, 1000)
-        temperature = odeint(self.temperature_time_derivative, y0=temp_amb, t=t)
+        t = np.arange(0, time_n)
+        y0 = np.array([self.temperature_atmosphere])
+        temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_span=[t[0], t[-1]], t_eval=t, args=[t]).y.T
         return temperature, t
     
     def plot_temp_time(self):
         """
-        Plots the temperature of the motor over time.
+        Plots the temperature of the battery over time.
         """
-        temperature, t = self.solve_temperature_time()
-        plt.plot(t, temperature)
-        plt.xlabel('Time [s]')
-        plt.ylabel('Temperature [K]')
-        plt.title('Motor Temperature Over Time')
+        y, t = self.solve_temperature_time()
+        max_x = t[np.argmax(y)]
+        max_y = np.max(y)
+        plt.scatter(max_x, max_y,c='r', label=f'maximum: {max_y}')
+        plt.plot(t, y)
+        plt.xlabel('t')
+        plt.ylabel('T(t)')
+        plt.legend()
         plt.show()
+        pass
 
     def solve_equilibrium_temperature(self):
         """

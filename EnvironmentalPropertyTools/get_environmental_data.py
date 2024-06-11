@@ -37,7 +37,7 @@ class DataGathering:
         
         self.interp_days = np.arange(min(self.days), max(self.days), 1)
         self.interp_time = np.arange(min(self.time_axis), max(self.time_axis), 1/12)
-        print(repr(self.interp_time))
+
         return property, time_axis, days   
     
     def interpolate_data(self, new_days, new_time_axis):
@@ -99,14 +99,15 @@ class DataGathering:
 
 
 # Example usage
-dg = DataGathering("EnvironmentalPropertyTools/data/100m/temperature_100m.txt")  # Replace with your data file name
+dg = DataGathering("EnvironmentalPropertyTools/data/1m/incident_solar_flux_horizontal_1m.txt")  # Replace with your data file name
+# dg = DataGathering("EnvironmentalPropertyTools/data/100m/temperature_100m.txt")  # Replace with your data file name
 
-extreme = "max"
-min_temp, day_data, day_index = dg.find_extreme_day(extreme)
+extreme = "min"
+min_property, day_data, day_index = dg.find_extreme_day(extreme)
 
 print(f"Day with {extreme} average property: {day_index} deg")
-print(f"Average temperature: {min_temp} K")
+print(f"Average property: {min_property}")
 print(f"Data for the day: {repr(day_data)}")
 
 temp, time, days = dg.get_data()
-dg.plot_data(title='Temperature [K]', xlabel='Martian Day', ylabel='Martian Time [h]')
+dg.plot_data(title='Property [?K]', xlabel='Martian Day', ylabel='Martian Time [h]')
