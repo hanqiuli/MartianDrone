@@ -203,10 +203,12 @@ class Arm():
 
 if __name__ == "__main__":
     materials = ['Alloy_1', 'Alloy_2', 'Composite_1', 'Composite_2']
-    length = 2.03
-    F = 46*(1.5**2)*3.71/6
-    r_blade = 1.3
-    M_torsion =3*F*r_blade/20
+    #length = 2.03
+    length = 0.627
+    # F = 46*(1.5**2)*3.71/6
+    F = 85.4
+    # r_blade = 1.3
+    # M_torsion =3*F*r_blade/20
     print(F)
     print(M_torsion)
     

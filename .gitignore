@@ -163,3 +163,5 @@ cython_debug/
 plots/
 .vscode
 .idea
+*/figures
+*/Figures

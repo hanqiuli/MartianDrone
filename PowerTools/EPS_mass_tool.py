@@ -21,7 +21,7 @@ from battery_sizing import get_battery_capacity
 mass_array = get_array_mass()
 mass_battery = get_battery_mass()
 mass_wires = get_wires_mass()
-mass_PCDU = 2 #Need to get this figured out
+mass_PCDU = 2
 
 array_area = get_array_area() #m^2
 battery_capacity = get_battery_capacity()/3600 #Wh

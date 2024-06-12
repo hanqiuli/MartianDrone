@@ -1,125 +1,144 @@
 import numpy as np
 from sympy.solvers import solve
 from sympy import Symbol
-from scipy.integrate import odeint
+from scipy.integrate import odeint, solve_ivp
 import matplotlib.pyplot as plt
 
-ENV = {'rho':      0.017, 
-            'g':        3.71, 
-            'a':        233.1,
-            'Re_min':   10000,
-            'Re_max':   50000,
-            'mu':       0.0000113}
+power1 = 5482
+power2 = 4112
 
-rho_air     = ENV['rho']    # [kg/m^3]      Air density
-g           = ENV['g']      # [m/s^2]       Gravitational acceleration
-dyn_vsc_air = ENV['mu']   # [Pa*s]        Air dynamic viscosity
-cp_air      = 772       # [J/(kg*K)]    Specific heat capacity of air
-k_air       = 0.024     # [W/(m*K)]     Air thermal conductivity
-sigma       = 5.67e-8   # Stefan-Boltzmann constant [W/(m^2*K^4)]
+# Physical/environmental constants
+g = 3.71             # Gravitational acceleration [m/s^2]
+sigma = 5.67e-8           # Stefan-Boltzmann constant [W/(m^2*K^4)]
 
-kin_vsc_air = dyn_vsc_air / rho_air         # [m^2/s]   Air kinematic viscosity
-alpha_air   = k_air / (rho_air * cp_air)    # [m^2/s]   Air thermal diffusivity
+#HOT
+rho_air = 1.3e-2          # Air density [kg/m^3]
+dyn_vsc_air = 1.4e-5      # Air dynamic viscosity [Pa*s]
+temp_amb = 274            # Ambient temperature [K]
+cp_air = 8.3e+2           # Specific heat capacity of air [J/(kg*K)]
+
+#COLD
+# rho_air = 1.6e-2          # Air density [kg/m^3]
+# dyn_vsc_air = 1.0e-5      # Air dynamic viscosity [Pa*s]
+# temp_amb = 204            # Ambient temperature [K]
+# cp_air = 7.6e+2           # Specific heat capacity of air [J/(kg*K)]
+
+k_air = 0.0209            # Air thermal conductivity [W/(m*K)]
+kinematic_air_viscosity = dyn_vsc_air / rho_air  # Kinematic viscosity [m^2/s]
 
 class FinParameters:
-    def __init__(self):
+    def __init__(self,num_fins=12):
         # Rotorcraft parameters
-        self.power_motor_total = 5500  # [W] Total power of the motors
-        self.eff_motor = 0.75  # [-] Motor efficiency
-
-        self.mass_motor_total = 3.125  # [kg] Total mass of the motors
-        
-        self.num_rotors = 6  # [-] Number of rotors
+        self.num_rotors = 6            # Number of rotors [-]
 
         # Motor parameters
-        self.heat_capacity_motor = 900.0  # [J/(kg*K)] Motor specific heat capacity
-        self.conductivity_motor = 237.0  # [W/(m*K)] Motor thermal conductivity
-        self.diameter_motor = 0.08  # [m] Motor diameter
-
-        self.heat_motor = (1 - self.eff_motor) * self.power_motor_total/self.num_rotors  # [W] Motor heat
-        self.mass_motor = self.mass_motor_total / self.num_rotors  # [kg] Motor mass
-
-        self.velocity_downwash_rotor = 22  # [rad/s] Rotor downwash velocity
+        self.heat_capacity_motor = 900.0  # Motor specific heat capacity [J/(kg*K)]
+        self.conductivity_motor = 209.0   # Motor thermal conductivity [W/(m*K)]
+        self.diameter_motor = 0.06        # Motor diameter [m]
+        self.velocity_downwash_rotor = 15  # Rotor downwash velocity [rad/s]
 
         # Fin parameters
-        self.length_fin = 0.15  # [m] Fin length
-        self.height_fin = 0.04  # [m] Fin height
-        self.thickness_fin = 0.002  # [m] Fin thickness
-        self.spacing_fin = 0.005  # [m] Fin spacing
-        self.density_fin = 2700  # [kg/m^3] Fin density
+        self.length_fin = 0.051             # Fin length [m]
+        self.height_fin = 0.17             # Fin height [m]
+        self.thickness_fin = 0.003         # Fin thickness [m]
+        self.num_fins = num_fins           # Number of fins [-]
+        self.density_fin = 2700            # Fin density [kg/m^3]
 
-        self.num_fins = np.floor(np.pi * self.diameter_motor / (self.thickness_fin + self.spacing_fin))  # [-] Number of fins
-        self.area_unfinned = np.pi * self.diameter_motor * self.length_fin - self.num_fins * self.length_fin * self.thickness_fin  # [m^2] Unfinned area
-        self.area_fin = 2 * self.height_fin * self.length_fin + 2 * self.height_fin * self.thickness_fin + self.length_fin * self.thickness_fin  # [m^2] Fin area
-        self.area_fin_crosssection = self.length_fin * self.thickness_fin  # [m^2] Fin cross-sectional area
-        self.perimiter_fin = 2 * self.length_fin + 2 * self.thickness_fin  # [m] Fin perimeter
-        self.area_fin_total = self.num_fins * self.area_fin + self.area_unfinned  # [m^2] Total surface area
-        self.area_fin_crosssection_total = self.area_fin_crosssection * self.num_fins  # [m^2] Total Top cross-sectional surface area
+        self.spacing_fin = np.pi * self.diameter_motor / self.num_fins - self.thickness_fin 
+        # self.num_fins = np.floor(np.pi * self.diameter_motor / (self.thickness_fin + self.spacing_fin))  # [-] Number of fins
+        self.area_unfinned = np.pi * self.diameter_motor * self.length_fin - self.num_fins * self.length_fin * self.thickness_fin  # Unfinned area [m^2]
+        self.area_fin = 2 * self.height_fin * self.length_fin + 2 * self.height_fin * self.thickness_fin + self.length_fin * self.thickness_fin  # Fin area [m^2]
+        self.area_fin_crosssection = self.length_fin * self.thickness_fin  # Fin cross-sectional area [m^2]
+        self.perimeter_fin = 2 * self.length_fin + 2 * self.thickness_fin  # Fin perimeter [m]
+        self.area_fin_total = self.num_fins * self.area_fin + self.area_unfinned  # Total surface area [m^2]
+        self.area_fin_crosssection_total = self.area_fin_crosssection * self.num_fins  # Total cross-sectional area [m^2]
 
+        self.volume_fin = self.num_fins * self.length_fin * self.height_fin * self.thickness_fin  # Fin volume [m^3]
+        self.mass_fin = self.volume_fin * self.density_fin  # Fin mass [kg]
+        self.mass_fin_total = self.mass_fin * self.num_rotors  # Total fin mass [kg]
 
-        self.volume_fin = self.num_fins * self.length_fin * self.height_fin * self.thickness_fin  # [m^3] Fin volume
-        self.mass_fin = self.volume_fin * self.density_fin  # [kg] Fin mass
-        self.mass_fin_total = self.mass_fin * self.num_rotors  # [kg] Total fin mass
+    def calculate_gebhart(self):
+        """Calculate the Gebhart factor for radiation exchange between fins."""
+        B12 = 1.0
+        B21 = 1.0
+        max_iterations = 1000
+        tolerance = 1e-6
+        eps2 = 0.95  # Fin emissivity
+        eps1 = 0.95  # Fin emissivity
+        F12 = 1 - np.sin((self.spacing_fin) / (self.diameter_motor) * 0.5)
+        F21 = F12
 
-    def calc_prandtl_num(self):  # Prandtl number
-        self.prandtl_num = kin_vsc_air / alpha_air
+        for _ in range(max_iterations):
+            B12_old = B12
+            B21_old = B21
+            B22 = (1 - eps1) * F21 * B21
+            B12 = F12 * eps2 + (1 - eps2) * F12 * B22
+
+            if abs(B12 - B12_old) < tolerance and abs(B22 - B21_old) < tolerance:
+                break
+
+        return B12  # Gebhart factor
+
+    def calc_thermal_diffusivity(self):
+        """Calculate the thermal diffusivity of air."""
+        self.thermal_diffusivity_air = k_air / (rho_air * cp_air)  # [m^2/s]
+        return self.thermal_diffusivity_air
+
+    def calc_prandtl_num(self):
+        """Calculate the Prandtl number."""
+        self.prandtl_num = kinematic_air_viscosity / self.calc_thermal_diffusivity()
         return self.prandtl_num
 
-    def calc_reynolds_num(self):  # Reynolds number
-        self.reynolds_num = self.velocity_downwash_rotor * self.length_fin / kin_vsc_air
+    def calc_reynolds_num(self):
+        """Calculate the Reynolds number."""
+        self.reynolds_num = self.velocity_downwash_rotor * self.length_fin / kinematic_air_viscosity
         return self.reynolds_num
 
-    def calc_nusselt_number(self):  # Nusselt number
-        self.nusselt_number = 0.664 * self.reynolds_num ** (1 / 2) * self.prandtl_num ** (1 / 3)
+    def calc_nusselt_number(self):
+        """Calculate the Nusselt number."""
+        self.nusselt_number = 0.664 * self.calc_reynolds_num() ** 0.5 * self.calc_prandtl_num() ** (1 / 3)
         return self.nusselt_number
 
-    def calc_coefficient_convection(self):  # Convective heat transfer coefficient
-        self.coefficient_convection = self.nusselt_number * k_air / self.length_fin
+    def calc_coefficient_convection(self):
+        """Calculate the convective heat transfer coefficient."""
+        self.coefficient_convection = self.calc_nusselt_number() * k_air / self.length_fin
         return self.coefficient_convection
 
-    def calc_efficiency_fin(self):  # Fin efficiency
-        const = np.sqrt(self.coefficient_convection * self.perimiter_fin / (k_s * self.A_c))
-        u1 = np.sqrt(self.coefficient_convection * self.perimiter_fin * k_s * self.A_c)
-        u2 = np.tanh(const * self.height_fin) + self.coefficient_convection / (const * k_s)
-        l1 = self.coefficient_convection * self.area_fin
-        l2 = 1 + self.coefficient_convection / (const * k_s) * np.tanh(const * self.height_fin)
-        return u1 / l1 * u2 / l2
+    def calc_efficiency_fin(self):
+        """Calculate the efficiency of the fin."""
+        const = np.sqrt(self.coefficient_convection * self.perimeter_fin / (self.conductivity_motor * self.area_fin_crosssection))
+        numerator_1 = np.sqrt(self.coefficient_convection * self.perimeter_fin * self.conductivity_motor * self.area_fin_crosssection)
+        numerator_2 = np.tanh(const * self.height_fin) + self.coefficient_convection / (const * self.conductivity_motor)
+        denominator_1 = self.coefficient_convection * self.area_fin
+        denominator_2 = 1 + self.coefficient_convection / (const * self.conductivity_motor) * np.tanh(const * self.height_fin)
+        self.efficiency_fin = numerator_1 / denominator_1 * numerator_2 / denominator_2
+        return self.efficiency_fin
 
-    def calc_thermal_resistance(self, h, eff_fin):  # Thermal resistance
-        return 1 / (h * (eff_fin * self.num_fins * self.area_fin + self.area_unfinned))
+    def calc_thermal_resistance(self):
+        """Calculate the thermal resistance."""
+        self.thermal_resistance = 1 / (self.calc_coefficient_convection() * (self.calc_efficiency_fin() * self.num_fins * self.area_fin + self.area_unfinned))
+        return self.thermal_resistance
 
 fins = FinParameters()
+print(fins.calc_prandtl_num())
+fin_mass = fins.mass_fin
+fin_mass_total = fins.mass_fin_total
+print("fin mass: " + str(fin_mass))
+print("fin mass total: " + str(fin_mass_total))
 area_total = fins.area_fin_total
 area_top = fins.area_fin_crosssection_total
+thermal_resistance = fins.calc_thermal_resistance()
+f_re = 1-fins.calculate_gebhart()
+print(f_re)
 
-
-# heat_balance_cold = {
-#     'temperature_atmosphere': 210,  # [K] - Atmospheric temperature
-#     'irradiance_sun': 0,  # [W/m^2] - Solar irradiance
-#     'absorptivity': FILL,  # [-] - Absorptance of the motor
-#     'f_sr': 1,  # [-] - View factor for solar radiation
-#     'area_top': FILL,  # [m^2] - Top surface area of the motor
-
-#     'albedo': 0.4,  # [-] - Albedo of Mars
-
-#     'temperature_effective_mars': 209.8,  # [K] - Effective temperature for radiation of black body of Mars
-#     'emissivity_mars': 0.65,  # [-]-  Emissivity of Mars
-#     'stefan_boltzmann_constant': 5.6704e-8,  # [W/m^2*K^4] - Stefan-Boltzmann constant
-
-#     # motor properties
-#     'heat_rate_internal': {'motor': 0.25*5500},  # [W] - Heat from internal sources
-
-#     'coefficient_convection': FILL,  # [W/m^2*K] - Convection coefficient
-#     'area_total': area_fin_total,  # [m^2] - Total surface area of the motor
-#     'f_re': FILL,  # [-] - View factor for emitted radiation
-#     'emissivity_motor': FILL,  # [-] - Emissivity of the motor
-#     'motor_mass': FILL,  # [kg] - Mass of the motor
-#     'motor_heat_capacity': FILL,  # [J/kg*K] - Specific heat capacity of the motor
-# }
+time_n = 45*2+1000+600
+prop_power = np.ones(time_n)
+prop_power[0:45] = power1
+prop_power[45:time_n-45] = power2
+prop_power[time_n-45:time_n] = power1
 
 heat_balance_hot = {
-    'temperature_atmosphere': 269,  # [K] - Atmospheric temperature
-    'temperature_ground': 292.79,  # [K] - Ground temperature
+    'temperature_atmosphere': temp_amb,  # [K] - Atmospheric temperature
     'irradiance_sun': 646,  # [W/m^2] - Solar irradiance
     'absorptivity': 0.2,  # [-] - Absorptance of the motor
     'f_sr': 1,  # [-] - View factor for solar radiation
@@ -132,87 +151,74 @@ heat_balance_hot = {
     'stefan_boltzmann_constant': 5.6704e-8,  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
     # motor properties
-    'heat_rate_internal': {'motor': 0.25*5500},  # [W] - Heat from internal sources
+    'heat_rate_internal': 0.20*prop_power/6,  # [W] - Heat from internal sources
 
-    'coefficient_convection': 1,  # [W/m^2*K] - Convection coefficient
+    'coefficient_resistance': thermal_resistance,  # [K/W] - Thermal Resistance
     'area_total': area_total,  # [m^2] - Total surface area of the motor
-    'f_re': 1,  # [-] - View factor for emitted radiation
-    'emissivity_motor': 0.85,  # [-] - Emissivity of the motor
-    'motor_mass': 9.5,  # [kg] - Mass of the motor
+    'f_re': f_re,  # [-] - View factor for emitted radiation
+    'emissivity_motor': 0.95,  # [-] - Emissivity of the motor
+    'motor_mass': 0.65+fin_mass,  # [kg] - Mass of the motor
     'motor_heat_capacity': 1100,  # [J/kg*K] - Heat capacity of the motor
 
-    # Insulator properties
-    'thermal_conductivity': 216,  # [W/m*K] - Thermal conductivity of the insulator (Cork)
-    'thickness_insulator': 0.1  # [m] - Thickness of the insulator
+    # Conductivity properties
+    'thermal_conductivity': 216,  # [W/m*K] - Thermal conductivity
 }
 
 class MotorHeatTransfer:
     """
-    This class models the heat transfer of the motor of the Martian Drone motor.
+    This class models the heat transfer of the motor of the Martian Drone.
     """
 
-    def __init__(self):
+    def __init__(self,heat_dictionary=heat_balance_hot):
         # Environmental properties
-        heat_dictionary = heat_balance_hot
-        self.temperature_atmosphere = heat_dictionary['temperature_atmosphere']  # [K] - Atmospheric temperature
-        self.temperature_ground = heat_dictionary['temperature_ground']  # [K] - Ground temperature
-        self.irradiance_sun = heat_dictionary['irradiance_sun']  # [W/m^2] - Solar irradiance
-        self.absorptivity = heat_dictionary['absorptivity']  # [-] - Absorptance of the motor
-        self.f_sr = heat_dictionary['f_sr']  # [-] - View factor for solar radiation
-        self.area_top = heat_dictionary['area_top']  # [m^2] - Top surface area of the motor
-        
-        self.albedo = heat_dictionary['albedo']  # [-] - Albedo of Mars
-        
-        self.temperature_effective_mars = heat_dictionary['temperature_effective_mars']  # [K] - Effective temperature for radiation of black body of Mars
-        self.emissivity_mars = heat_dictionary['emissivity_mars']  # [-]-  Emissivity of Mars
-        self.stefan_boltzmann_constant = heat_dictionary['stefan_boltzmann_constant']  # [W/m^2*K^4] - Stefan-Boltzmann constant
+        self.temperature_atmosphere = heat_dictionary['temperature_atmosphere']  # Atmospheric temperature [K]
+        self.irradiance_sun = heat_dictionary['irradiance_sun']  # Solar irradiance [W/m^2]
+        self.absorptivity = heat_dictionary['absorptivity']  # Absorptance of the motor [-]
+        self.f_sr = heat_dictionary['f_sr']  # View factor for solar radiation [-]
+        self.area_top = heat_dictionary['area_top']  # Top surface area of the motor [m^2]
+        self.albedo = heat_dictionary['albedo']  # Albedo of Mars [-]
+        self.temperature_effective_mars = heat_dictionary['temperature_effective_mars']  # Effective temperature of Mars [K]
+        self.emissivity_mars = heat_dictionary['emissivity_mars']  # Emissivity of Mars [-]
+        self.stefan_boltzmann_constant = heat_dictionary['stefan_boltzmann_constant']  # Stefan-Boltzmann constant [W/(m^2*K^4)]
 
-        # motor properties
-        self.heat_rate_internal = sum(heat_dictionary['heat_rate_internal'].values())  # [W] - Total heat from internal sources
-        
-        self.coefficient_convection = heat_dictionary['coefficient_convection']  # [W/m^2*K] - Convection coefficient
-        self.area_total = heat_dictionary['area_total']  # [m^2] - Total surface area of the motor
-        self.f_re = heat_dictionary['f_re']  # [-] - View factor for emitted radiation
-        self.emissivity_motor = heat_dictionary['emissivity_motor']  # [-] - Emissivity of the motor
-        self.motor_mass = heat_dictionary['motor_mass']  # [kg] - Mass of the motor
-        self.motor_heat_capacity = heat_dictionary['motor_heat_capacity']  # [J/kg*K] - Heat capacity of the motor
+        # Motor properties
+        self.heat_rate_internal = heat_dictionary['heat_rate_internal']  # Total internal heat [W]
+        self.coefficient_resistance = heat_dictionary['coefficient_resistance']  # Heat transfer resistance coefficient [W/K]
+        self.area_total = heat_dictionary['area_total']  # Total motor surface area [m^2]
+        self.f_re = heat_dictionary['f_re']  # View factor for emitted radiation [-]
+        self.emissivity_motor = heat_dictionary['emissivity_motor']  # Motor emissivity [-]
+        self.motor_mass = heat_dictionary['motor_mass']  # Motor mass [kg]
+        self.motor_heat_capacity = heat_dictionary['motor_heat_capacity']  # Motor heat capacity [J/(kg*K)]
 
-        # Insulator properties
-        self.thermal_conductivity = heat_dictionary['thermal_conductivity']  # [W/m*K] - Thermal conductivity of the insulator (Cork)
-        self.thickness_insulator = heat_dictionary['thickness_insulator']  # [m] - Thickness of the insulator
-    
+        # Conductivity properties
+        self.thermal_conductivity = heat_dictionary['thermal_conductivity']  # Thermal conductivity [W/(m*K)]
+
     def heat_rate_conduction(self, temperature_motor):
         """
-        Calculates the heat input due to conduction from the motor to the arm.
+        Placeholder for calculating heat input due to conduction from the motor to the arm.
 
         Args:
-            temperature_motor: The current temperature of the motor [K].
+            temperature_motor: Current motor temperature [K].
 
         Returns:
-            The heat input due to conduction [W].
+            Heat input due to conduction [W].
         """
-
-        heat_rate_cond = - self.thermal_conductivity * self.area_total / self.thickness_insulator * (temperature_motor - self.temperature_atmosphere) 
         return 0
-    
+
     def heat_rate_external_input(self, temperature_motor):
         """
         Calculates the total heat input from external sources.
 
         Args:
-            temperature_motor: The current temperature of the motor [K].
+            temperature_motor: Current motor temperature [K].
 
         Returns:
             A tuple containing the total heat input [W] and individual components [W].
         """
-
         heat_rate_sun = self.absorptivity * self.irradiance_sun * self.area_top * self.f_sr
-        
         heat_rate_albedo = self.albedo * self.absorptivity * self.irradiance_sun * self.area_top * self.f_sr
-        
         j_p = self.emissivity_mars * self.stefan_boltzmann_constant * self.temperature_effective_mars**4
         heat_rate_ir = j_p * self.area_top
-        
         heat_rate_cond = self.heat_rate_conduction(temperature_motor)
         
         total_heat_rate_ext = heat_rate_sun + heat_rate_albedo + heat_rate_ir + heat_rate_cond
@@ -223,9 +229,8 @@ class MotorHeatTransfer:
         Calculates the total heat input from internal sources.
 
         Returns:
-            The total heat input from electronics and motor [W].
+            Total heat input from internal sources [W].
         """
-
         return self.heat_rate_internal
 
     def heat_rate_convection(self, temperature_motor):
@@ -233,13 +238,12 @@ class MotorHeatTransfer:
         Calculates the heat loss due to convection with the atmosphere.
 
         Args:
-            temperature_motor: The current temperature of the motor [K].
+            temperature_motor: Current motor temperature [K].
 
         Returns:
-            The heat loss due to convection [W].
+            Heat loss due to convection [W].
         """
-
-        heat_rate_conv = self.coefficient_convection * (temperature_motor - self.temperature_atmosphere) * self.area_total
+        heat_rate_conv = 1 / self.coefficient_resistance * (temperature_motor - self.temperature_atmosphere)
         return heat_rate_conv
 
     def heat_rate_out(self, temperature_motor):
@@ -247,13 +251,13 @@ class MotorHeatTransfer:
         Calculates the heat loss due to radiation to the environment.
 
         Args:
-            temperature_motor: The current temperature of the motor [K].
+            temperature_motor: Current motor temperature [K].
 
         Returns:
-            The heat loss due to radiation [W].
+            Heat loss due to radiation [W].
         """
-
-        heat_rate_out = self.stefan_boltzmann_constant * self.emissivity_motor * (temperature_motor**4 - self.temperature_atmosphere**4) * self.area_total
+        heat_rate_out = self.f_re * self.stefan_boltzmann_constant * self.emissivity_motor * \
+                        (temperature_motor**4 - self.temperature_atmosphere**4) * self.area_total
         return heat_rate_out 
 
     def heat_rate_balance(self, temperature_motor):
@@ -261,63 +265,66 @@ class MotorHeatTransfer:
         Calculates the balance equation to solve for the motor's temperature.
 
         Args:
-            temperature_motor: The current temperature of the motor [K].
+            temperature_motor: Current motor temperature [K].
 
         Returns:
-            The value of the balance equation [W] (should be zero at equilibrium).
+            Balance equation value [W] (should be zero at equilibrium).
         """
-
         heat_rate_ext, _ = self.heat_rate_external_input(temperature_motor)
         heat_rate_int = self.heat_rate_internal_input()
         heat_rate_conv = self.heat_rate_convection(temperature_motor)
         heat_rate_out = self.heat_rate_out(temperature_motor)
         return heat_rate_ext + heat_rate_int - heat_rate_conv - heat_rate_out
-
-    def temperature_time_derivative(self, temperature_motor, t):
+    
+    def temperature_time_derivative(self, t, temperature_motor, t_list):
         """
         Calculates the derivative of the temperature of the motor over time.
 
         Args:
-            temperature_motor: The current temperature of the motor [K].
-            t: The current time [s].
+            temperature_motor: Current motor temperature [K].
+            t: Current time [s].
 
         Returns:
-            The derivative of the temperature of the motor over time [K/s].
+            Derivative of motor temperature over time [K/s].
         """
-        return 1/(self.motor_mass*self.motor_heat_capacity)*self.heat_rate_balance(temperature_motor)
+        index = np.argmin(np.abs(t_list-t))
+        temperature_derivative = ( 1 / (self.motor_mass * self.motor_heat_capacity) * self.heat_rate_balance(temperature_motor))
+        return temperature_derivative[index]
 
     def solve_temperature_time(self):
         """
-        Solves the heat balance equation to find the temperature of the motor over time.
+        Solves the heat balance equation to find the temperature of the battery over time.
 
         Returns:
-            The temperature of the motor over time [K] [s].
+            The temperature of the battery over time [K] [s].
         """
-        
-        t = np.linspace(0,20*60, 1000)
-        temperature = odeint(self.temperature_time_derivative, y0=270, t=t)
+        t = np.arange(0, time_n)
+        y0 = np.array([self.temperature_atmosphere])
+        temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_span=[t[0], t[-1]], t_eval=t, args=[t]).y.T
         return temperature, t
     
     def plot_temp_time(self):
         """
-        Plots the temperature of the motor over time.
+        Plots the temperature of the battery over time.
         """
         y, t = self.solve_temperature_time()
+        max_x = t[np.argmax(y)]
+        max_y = np.max(y)
+        plt.scatter(max_x, max_y,c='r', label=f'maximum: {max_y}')
         plt.plot(t, y)
         plt.xlabel('t')
         plt.ylabel('T(t)')
+        plt.legend()
         plt.show()
         pass
 
     def solve_equilibrium_temperature(self):
         """
-        Solves the heat balance equation to find the equilibrium temperature 
-        of the motor.
+        Solves the heat balance equation to find the equilibrium temperature of the motor.
 
         Returns:
-            The equilibrium temperature of the motor [K].
+            Equilibrium temperature of the motor [K].
         """
-
         x = Symbol('x')
         temperature_equilibrium_solutions = solve(self.heat_rate_balance(x), x)
         return temperature_equilibrium_solutions[1]
@@ -331,5 +338,37 @@ def main2():
     motor = MotorHeatTransfer()
     motor.plot_temp_time()
 
+from scipy.optimize import minimize_scalar
+
+def optimize_fin_amount(target_temperature=350):
+    """
+    Optimizes the number of fins to achieve a target motor temperature.
+    
+    Args:
+        target_temperature: The desired motor temperature at the end of the time period [K].
+
+    Returns:
+        Optimal number of fins.
+    """
+    
+    def objective(num_fins):
+        fins.__init__(num_fins)        
+        heat_balance_hot['coefficient_resistance'] = fins.calc_thermal_resistance()
+        heat_balance_hot['motor_mass'] = 0.5+fins.mass_fin
+        heat_balance_hot['area_total'] = fins.area_fin_total
+        heat_balance_hot['area_top'] = fins.area_fin_crosssection_total
+        f_re = 1-fins.calculate_gebhart()
+        heat_balance_hot['f_re'] = f_re
+        motor = MotorHeatTransfer(heat_balance_hot)
+        temperature, _ = motor.solve_temperature_time()
+        print(temperature[-1])
+        return abs(temperature[-1] - target_temperature)
+    
+    result = minimize_scalar(objective, bounds=(1, 50), method='bounded')
+    return int(result.x)
+
 if __name__ == "__main__":
     main2()
+    # a = optimize_fin_amount()
+    # print(a)
+
