@@ -1,9 +1,24 @@
 import numpy as np
 from sympy.solvers import solve
 from sympy import Symbol
-from scipy.integrate import odeint
-from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+
+
+def solve_ivp(dydx, y0, t_eval, args):
+    """
+    Solve an initial value problem using the forward euler method.
+    """
+    y = np.zeros([len(t_eval), len(y0)])
+    y[0] = y0
+    print(args)
+
+    for i, t in enumerate(t_eval[1:]):
+        dt = t_eval[i+1] - t_eval[i]
+        y[i+1] = y[i] + dt*dydx(t, y[i], *args)
+    
+    return y
+    
+
 
 # # doi:10.1088/1757-899X/1226/1/012113
 # side_hexagon = 0.53  # [m] - Side of the hexagon
@@ -367,7 +382,7 @@ heat_balance_maxtemp = {
     'stefan_boltzmann_constant': 5.6704e-8,  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
         # battery properties
-    'heat_rate_internal': 10,  # [W] - Heat from internal sources
+    'heat_rate_internal': 20,  # [W] - Heat from internal sources
 
     'coefficient_convection': 1,  # [W/m^2*K] - Convection coefficient
     'area_total': area_total,  # [m^2] - Total surface area of the battery
@@ -561,7 +576,7 @@ class BatteryHeatTransfer:
 
     def __init__(self):
         # Environmental properties
-        heat_dictionary = heat_balance_mintemp
+        heat_dictionary = heat_balance_maxtemp
         self.temperature_atmosphere = heat_dictionary['temperature_atmosphere']  # [K] - Atmospheric temperature
         self.irradiance_sun = heat_dictionary['irradiance_sun']  # [W/m^2] - Solar irradiance
         self.absorptivity = heat_dictionary['absorptivity']  # [-] - Absorptance of the battery
@@ -589,6 +604,11 @@ class BatteryHeatTransfer:
         self.thickness_insulator_ins = heat_dictionary['thickness_insulator']  # [m] - Thickness of the insulator
         self.thermal_conductivity_air = heat_dictionary['thermal_conductivity_air']  # [W/m*K] - Thermal conductivity of the insulator (Cork)
         self.thickness_insulator_air = heat_dictionary['thickness_insulator_air']  # [m] - Thickness of the insulator
+
+        self.temperature_setpoint = 253.15 # [K]  - Temperature minimum
+        self.heating_active = False # - Boolean value indicating if the heating is active
+
+        self.heat_list = []
 
     
     def heat_rate_conduction(self, temperature_battery):
@@ -625,15 +645,21 @@ class BatteryHeatTransfer:
         total_heat_rate_ext = heat_rate_sun + heat_rate_albedo + heat_rate_ir + heat_rate_cond
         return total_heat_rate_ext, (heat_rate_sun, heat_rate_albedo, heat_rate_ir, heat_rate_cond)
 
-    def heat_rate_internal_input(self):
+    def heat_rate_internal_input(self, temperature_battery):
         """
         Calculates the total heat input from internal sources.
 
         Returns:
             The total heat input from electronics and motor [W].
         """
-
-        return self.heat_rate_internal
+        if temperature_battery < self.temperature_setpoint:
+            self.heating_active = True
+        elif temperature_battery > self.temperature_setpoint + 0.5:
+            self.heating_active = False
+            
+        
+        #print(temperature_battery, self.heat_rate_internal * self.heating_active)
+        return self.heat_rate_internal * self.heating_active
 
     def heat_rate_convection(self, temperature_battery):
         """
@@ -675,7 +701,7 @@ class BatteryHeatTransfer:
         """
 
         heat_rate_ext, _ = self.heat_rate_external_input(temperature_battery)
-        heat_rate_int = self.heat_rate_internal_input()
+        heat_rate_int = self.heat_rate_internal_input(temperature_battery)
         heat_rate_conv = self.heat_rate_convection(temperature_battery)
         heat_rate_out = self.heat_rate_out(temperature_battery)
         return heat_rate_ext + heat_rate_int - heat_rate_conv - heat_rate_out
@@ -691,7 +717,7 @@ class BatteryHeatTransfer:
         Returns:
             The derivative of the temperature of the battery over time [K/s].
         """
-        index = np.argmin(np.abs(t_list-t))
+        index = int(288*np.argmin(np.abs(t_list-t))/np.size(t_list))
         temperature_derivative = (1/(self.battery_mass*self.battery_heat_capacity)*self.heat_rate_balance(temperature_battery))
         return temperature_derivative[index]
 
@@ -702,69 +728,12 @@ class BatteryHeatTransfer:
         Returns:
             The temperature of the battery over time [K] [s].
         """
-        t = np.array([ 0.        ,  0.08333333,  0.16666667,  0.25      ,  0.33333333,
-        0.41666667,  0.5       ,  0.58333333,  0.66666667,  0.75      ,
-        0.83333333,  0.91666667,  1.        ,  1.08333333,  1.16666667,
-        1.25      ,  1.33333333,  1.41666667,  1.5       ,  1.58333333,
-        1.66666667,  1.75      ,  1.83333333,  1.91666667,  2.        ,
-        2.08333333,  2.16666667,  2.25      ,  2.33333333,  2.41666667,
-        2.5       ,  2.58333333,  2.66666667,  2.75      ,  2.83333333,
-        2.91666667,  3.        ,  3.08333333,  3.16666667,  3.25      ,
-        3.33333333,  3.41666667,  3.5       ,  3.58333333,  3.66666667,
-        3.75      ,  3.83333333,  3.91666667,  4.        ,  4.08333333,
-        4.16666667,  4.25      ,  4.33333333,  4.41666667,  4.5       ,
-        4.58333333,  4.66666667,  4.75      ,  4.83333333,  4.91666667,
-        5.        ,  5.08333333,  5.16666667,  5.25      ,  5.33333333,
-        5.41666667,  5.5       ,  5.58333333,  5.66666667,  5.75      ,
-        5.83333333,  5.91666667,  6.        ,  6.08333333,  6.16666667,
-        6.25      ,  6.33333333,  6.41666667,  6.5       ,  6.58333333,
-        6.66666667,  6.75      ,  6.83333333,  6.91666667,  7.        ,
-        7.08333333,  7.16666667,  7.25      ,  7.33333333,  7.41666667,
-        7.5       ,  7.58333333,  7.66666667,  7.75      ,  7.83333333,
-        7.91666667,  8.        ,  8.08333333,  8.16666667,  8.25      ,
-        8.33333333,  8.41666667,  8.5       ,  8.58333333,  8.66666667,
-        8.75      ,  8.83333333,  8.91666667,  9.        ,  9.08333333,
-        9.16666667,  9.25      ,  9.33333333,  9.41666667,  9.5       ,
-        9.58333333,  9.66666667,  9.75      ,  9.83333333,  9.91666667,
-       10.        , 10.08333333, 10.16666667, 10.25      , 10.33333333,
-       10.41666667, 10.5       , 10.58333333, 10.66666667, 10.75      ,
-       10.83333333, 10.91666667, 11.        , 11.08333333, 11.16666667,
-       11.25      , 11.33333333, 11.41666667, 11.5       , 11.58333333,
-       11.66666667, 11.75      , 11.83333333, 11.91666667, 12.        ,
-       12.08333333, 12.16666667, 12.25      , 12.33333333, 12.41666667,
-       12.5       , 12.58333333, 12.66666667, 12.75      , 12.83333333,
-       12.91666667, 13.        , 13.08333333, 13.16666667, 13.25      ,
-       13.33333333, 13.41666667, 13.5       , 13.58333333, 13.66666667,
-       13.75      , 13.83333333, 13.91666667, 14.        , 14.08333333,
-       14.16666667, 14.25      , 14.33333333, 14.41666667, 14.5       ,
-       14.58333333, 14.66666667, 14.75      , 14.83333333, 14.91666667,
-       15.        , 15.08333333, 15.16666667, 15.25      , 15.33333333,
-       15.41666667, 15.5       , 15.58333333, 15.66666667, 15.75      ,
-       15.83333333, 15.91666667, 16.        , 16.08333333, 16.16666667,
-       16.25      , 16.33333333, 16.41666667, 16.5       , 16.58333333,
-       16.66666667, 16.75      , 16.83333333, 16.91666667, 17.        ,
-       17.08333333, 17.16666667, 17.25      , 17.33333333, 17.41666667,
-       17.5       , 17.58333333, 17.66666667, 17.75      , 17.83333333,
-       17.91666667, 18.        , 18.08333333, 18.16666667, 18.25      ,
-       18.33333333, 18.41666667, 18.5       , 18.58333333, 18.66666667,
-       18.75      , 18.83333333, 18.91666667, 19.        , 19.08333333,
-       19.16666667, 19.25      , 19.33333333, 19.41666667, 19.5       ,
-       19.58333333, 19.66666667, 19.75      , 19.83333333, 19.91666667,
-       20.        , 20.08333333, 20.16666667, 20.25      , 20.33333333,
-       20.41666667, 20.5       , 20.58333333, 20.66666667, 20.75      ,
-       20.83333333, 20.91666667, 21.        , 21.08333333, 21.16666667,
-       21.25      , 21.33333333, 21.41666667, 21.5       , 21.58333333,
-       21.66666667, 21.75      , 21.83333333, 21.91666667, 22.        ,
-       22.08333333, 22.16666667, 22.25      , 22.33333333, 22.41666667,
-       22.5       , 22.58333333, 22.66666667, 22.75      , 22.83333333,
-       22.91666667, 23.        , 23.08333333, 23.16666667, 23.25      ,
-       23.33333333, 23.41666667, 23.5       , 23.58333333, 23.66666667,
-       23.75      , 23.83333333, 23.91666667])
+        t = np.linspace(0, 24, 24*60*30)
 
         t *= 3600
         y0 = np.array([260])
-        temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_span=[t[0], t[-1]], t_eval=t, args=[t]).y.T
-        temperature = solve_ivp(self.temperature_time_derivative, y0=temperature[-1], t_span=[t[0], t[-1]], t_eval=t, args=[t]).y.T
+        temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_eval=t, args=[t])
+        temperature = solve_ivp(self.temperature_time_derivative, y0=temperature[-1], t_eval=t, args=[t])
         return temperature, t
     
     def plot_temp_time(self):
