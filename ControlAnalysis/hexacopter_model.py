@@ -134,7 +134,7 @@ class HexacopterModel:
         return np.clip(thruster_inputs, *self.thruster_range)
 
     # Full simulation
-    def simulate_response(self, _, state, thruster_inputs, dt):
+    def simulate_response(self, t, state, thruster_inputs, dt):
         '''Full model simulation involving both the kinematics as well as the thruster response and limits'''
         # thruster response
         thruster_inputs = self.clip_thrusters(thruster_inputs)

@@ -1,4 +1,5 @@
 import sys
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,11 +10,21 @@ from hexacopter_model import HexacopterModel
 from hexacopter_flight_computer import FlightComputer
 
 
+def filepath(filename, path):
+   folders = os.path.join(*path)
+   os.makedirs(folders, exist_ok=True)
+
+   fullpath = os.path.join(folders, filename)
+   return fullpath
+
+
 def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, input_array):
 
     """
         Plot the simulation results
     """
+    path = ['ControlAnalysis', 'Figures']
+
 
     desired_x, desired_y, desired_z, desired_phi, desired_theta, desired_psi, \
     desired_xdot, desired_ydot, desired_zdot, desired_p, desired_q, desired_r = setpoints.T
@@ -50,8 +61,8 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.plot(times, np.ones_like(times)*125, 'r--', label='close range')
     plt.plot(times, np.ones_like(times)*5, 'b--', label='land range')
     plt.plot(times, np.ones_like(times)*0.8, 'g--', label='accuracy range')
-    # text with opacity of 0.7
     plt.text(times[-1], r[-1], f'r = {round(r[-1], 2)}', fontsize=7, ha='right', color='k', alpha=0.7)
+    print(f'r = {round(r[-1], 2)}')
     plt.xlabel('Time [s]')
     plt.ylabel('Position [m]')
     plt.yscale('log')
@@ -66,7 +77,7 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig('ControlAnalysis/figures/position.png', dpi=300)
+    plt.savefig(filepath('position.png', path), dpi=300)
 
     # Attitude plot
     plt.figure()
@@ -92,7 +103,7 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig('ControlAnalysis/figures/angles.png', dpi=300)
+    plt.savefig(filepath('angles.png', path), dpi=300)
 
     # Velocity plot
     plt.figure()
@@ -113,7 +124,7 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.ylim([-20, 20])
 
     plt.tight_layout()
-    plt.savefig('ControlAnalysis/figures/velocity.png', dpi=300)
+    plt.savefig(filepath('velocity.png', path), dpi=300)
 
     # Attitude rate plot
     plt.figure()
@@ -143,7 +154,7 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
 
 
     plt.tight_layout()
-    plt.savefig('ControlAnalysis/figures/angular_velocity.png', dpi=300)
+    plt.savefig(filepath('angular_velocity.png', path), dpi=300)
 
     # Thruster plot
     plt.figure(figsize=(30, 4.8*1.5))
@@ -152,7 +163,7 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.xlabel('Time [s]')
     plt.ylabel('Thruster values [N]')
     plt.tight_layout()
-    plt.savefig('ControlAnalysis/figures/thrusters.png', dpi=300)
+    plt.savefig(filepath('thrusters.png', path), dpi=300)
 
     # Thruster plot
     plt.figure(figsize=(30, 4.8*3))
@@ -161,7 +172,7 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.xlabel('Time [s]')
     plt.ylabel('Thruster values [N]')
     plt.tight_layout()
-    plt.savefig('ControlAnalysis/figures/inputs.png', dpi=300)
+    plt.savefig(filepath('inputs.png', path), dpi=300)
 
     # Flight mode plot
     flight_modes = sorted(list(set(flight_mode_list)))
@@ -180,7 +191,7 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.xlabel('Time [s]')
     plt.ylabel('Active [True/False]')
     plt.tight_layout()
-    plt.savefig('ControlAnalysis/figures/flight_mode.png', dpi=600)
+    plt.savefig(filepath('flight_mode.png', path), dpi=600)
 
 
     plt.close('all')
@@ -247,29 +258,32 @@ def simulate(times, initial_state, target, *, \
 
 
 if __name__ == "__main__":
-    time_step = 0.01
+    time_step = 0.02
 
     # Target position: x, y, psi(heading)
-    target = np.array([1237, 900, 1.7])
+    target = np.array([137, 90, 1.7])
 
     # Define constants
     mass = 60.0
     moment_inertia = np.diag([5, 5, 8])
-    moment_inertia_prop = 0.01
+    moment_inertia_prop = 0.096
     
     # PID_Params given in the following structure: 
     # [P, I, D, wind_up_limit, clip_limit]
-    
+    speed_target = 30
+    speed_closing = 3
+    precision_speed = speed_closing/10
+
     max_angle = 30 * np.pi/180
-    precision_speed = 0.3
+    
     pid_params = [
         # Angles -> Thruster_inputs
         [0.4, 0.05, 0.8, 3], # Phi
         [0.4, 0.05, 0.8, 3], # Theta
         [0.5, 0.1, 0.3, 3], # Psi
         # Positions -> Angles
-        [0.18, 0.0005, 0.6, 1, precision_speed],   # X
-        [0.18, 0.0005, 0.6, 1, precision_speed],   # Y
+        [0.18, 0.0005, 0.7, 1, precision_speed],   # X
+        [0.18, 0.0005, 0.7, 1, precision_speed],   # Y
         [1.5, 0.15, 5, 3, 10],   # exception in Z: Position -> thrust
         # Velocities -> Angles
         [3, 0.008, 5, 10, max_angle],   # Velocity X
@@ -299,8 +313,7 @@ if __name__ == "__main__":
         'propellor_radius': propellor_radius,
     }
 
-    speed_target = 30
-    speed_closing = 3
+    
 
     flight_computer_args = [
         speed_target,
@@ -336,7 +349,7 @@ if __name__ == "__main__":
     times = np.arange(0, time_end + time_step, time_step)
 
     initial_state = np.zeros(12)
-    initial_state[2] = 5
+    initial_state[2] = 1
 
     
     

@@ -24,7 +24,7 @@ class FlightComputer:
         self.speed_closing = speed_closing
 
         self.land_speed_low = -0.5
-        self.land_speed_high = -5
+        self.land_speed_high = -8
 
         self.close_radius = 125
         self.land_radius = 5
@@ -85,7 +85,6 @@ class FlightComputer:
             
             b = self.close_radius*2
             a = self.close_radius
-            
             speed = interp(r, a, b, self.speed_closing, self.speed_target)
 
             x_dot, y_dot = delta_pos/r * speed
@@ -95,7 +94,10 @@ class FlightComputer:
             control_loop_index = 1
 
         elif mode == 'land':
-            target_vertical_speed = self.land_speed_low if state[2] < 40 else self.land_speed_high
+            b = self.safe_altitude/2
+            a = self.safe_altitude/8
+            target_vertical_speed = interp(state[2], a, b, self.land_speed_low, self.land_speed_high)
+
             set_point = [*target[0:2], 0, None, None, target[2], \
                          None, None, target_vertical_speed, None, None, None]
             control_loop_index = 3
@@ -103,7 +105,11 @@ class FlightComputer:
         elif mode == 'close':
             delta_pos = target[0:2] - state[0:2]
             r = float(np.linalg.norm(delta_pos))
-            x_dot, y_dot = delta_pos/r * self.speed_closing
+
+            b = self.land_radius*2
+            a = self.land_radius
+            speed = interp(r, a, b, self.speed_closing/3, self.speed_closing)
+            x_dot, y_dot = delta_pos/r * speed
             
             b = self.close_radius
             a = min(self.land_radius*5, self.close_radius/2)
