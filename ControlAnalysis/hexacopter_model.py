@@ -8,6 +8,18 @@ from legacy.DesignTools.environment_properties import ENV as ENVdict
 from motor_response import MotorResponse
 
 
+class DisturbanceModel:
+    '''Model of turbulence based on the wiener process'''
+    def __init__(self, weight_array, limits):
+        self.weight_array = weight_array
+        self.x = np.zeros(len(self.weight_array))
+        self.limits = limits
+
+    def get_disturbance(self, dt):
+        self.x += np.random.normal(0, 1, len(self.weight_array)) * np.sqrt(dt)
+        self.x = np.clip(self.x, -self.limits, self.limits)
+        return self.x * self.weight_array/self.limits
+
 class HexacopterModel:
     """Hexacopter dynamics model"""
     def __init__(self, mass, moment_inertia, moment_inertia_prop, *, \
@@ -67,6 +79,11 @@ class HexacopterModel:
 
         self.crashed = False
 
+        # T, Mx, My, Mz
+        turbulence_weights = np.array([0.15, 0.15, 0.3, 0.6, 0.6, 0.4])
+        turbulence_limits = np.ones_like(turbulence_weights)*0.7
+        self.disturbance = DisturbanceModel(turbulence_weights, turbulence_limits)
+
     # Hexacopter dynamics
     def hexacopter_dynamics(self, state, omega_rotors, inputs):
 
@@ -102,13 +119,15 @@ class HexacopterModel:
         theta_dot = q * np.cos(phi) - r * np.sin(phi)
         psi_dot = q * np.sin(phi) / np.cos(theta) + r * np.cos(phi) / np.cos(theta)
 
-        #TODO: Check whether we should include propeller inertia effects
         p_dot = (J[1,1] - J[2,2]) * q * r / J[0,0] + u2 / J[0,0] - Jr * omega_r * q / J[0, 0]
         q_dot = (J[2,2] - J[0,0]) * p * r / J[1,1] + u3 / J[1,1] + Jr * omega_r * p / J[1, 1]
         r_dot = (J[0,0] - J[1,1]) * p * q / J[2,2] + u4 / J[2,2]
 
-        return [x_dot, y_dot, z_dot, phi_dot, theta_dot, psi_dot, x_ddot, y_ddot, z_ddot, p_dot, q_dot, r_dot]
 
+        state = np.array([x_dot, y_dot, z_dot, phi_dot, theta_dot, psi_dot, x_ddot, y_ddot, z_ddot, p_dot, q_dot, r_dot])
+
+        return state
+    
     # Thruster dynamics
     def setup_motor_responses(self, *args):
         """
@@ -135,7 +154,7 @@ class HexacopterModel:
 
     # Full simulation
     def simulate_response(self, t, state, thruster_inputs, dt):
-        '''Full model simulation involving both the kinematics as well as the thruster response and limits'''
+        '''Full model simulation involving both the kinematics as well as the thruster response and limits and turbulence'''
         # thruster response
         thruster_inputs = self.clip_thrusters(thruster_inputs)
         for i, motor_response in enumerate(self.motor_response_list):
@@ -147,5 +166,9 @@ class HexacopterModel:
         omega_rotors = np.sqrt(thruster_inputs / self.b)
 
         # kinematic model
-        return self.hexacopter_dynamics(state, omega_rotors, inputs)
+        disturbance = self.disturbance.get_disturbance(dt)
+
+        state_dot = self.hexacopter_dynamics(state, omega_rotors, inputs)
+        state_dot[6:] += disturbance
+        return state_dot, disturbance
 

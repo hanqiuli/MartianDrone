@@ -1,13 +1,57 @@
 import sys
 import os
+import random as rand
+import re
+import math
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
-from scipy.integrate import solve_ivp # type: ignore
 
 sys.path.append('.')
 from hexacopter_model import HexacopterModel
 from hexacopter_flight_computer import FlightComputer
+
+
+def solve_ivp(dydx_func, y0, t_eval, args):
+    """
+    Solve an initial value problem using the forward euler method.
+    """
+    
+
+    extra = []
+    if len(t_eval) < 2:
+        t_eval = [0, t_eval[0]]
+    y = np.zeros([len(t_eval), len(y0)])
+    y[0] = y0
+
+    for i, t in enumerate(t_eval[1:]):
+        dt = t_eval[i+1] - t_eval[i]
+        dydx, *extra = dydx_func(t, y[i], *args)
+        y[i+1] = y[i] + dt*dydx
+
+    return y, *extra
+
+
+def find_highest_index(directory, pattern_prefix, pattern_suffix):
+    # Regular expression pattern to match file_name_{i}_suffix
+    pattern = re.compile(rf"{re.escape(pattern_prefix)}(\d+){re.escape(pattern_suffix)}")
+    
+    # List all files in the directory
+    files = os.listdir(directory)
+    
+    # Extract numbers from files matching the pattern
+    indices = []
+    for file in files:
+        match = pattern.match(file)
+        if match:
+            indices.append(int(match.group(1)))
+    
+    # Find the highest number
+    if indices:
+        return max(indices)
+    else:
+        return -1
 
 
 def filepath(filename, path):
@@ -18,7 +62,7 @@ def filepath(filename, path):
    return fullpath
 
 
-def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, input_array):
+def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, input_array, disturbance):
 
     """
         Plot the simulation results
@@ -193,6 +237,27 @@ def plot_figures(states, times, setpoints, thruster_values, flight_mode_list, in
     plt.tight_layout()
     plt.savefig(filepath('flight_mode.png', path), dpi=600)
 
+    mpl.rcParams['agg.path.chunksize'] = 10000
+    # Disturbance
+    plt.figure(figsize=(30, 4.8*3))
+    plt.plot(times[:1000], disturbance[:1000, :])
+    plt.legend(['a_x', 'a_y', 'a_z', 'Mx', 'My', 'Mz'])
+    plt.xlabel('Time [s]')
+    plt.ylabel('Disturbance values [N] or [Nm]')
+    plt.tight_layout()
+    plt.savefig(filepath('turbulence.png', path), dpi=300)
+
+    delta_t = times[1:] - times[:-1]
+    disturbance_integral = np.cumsum(disturbance, axis=0)[:-1] * delta_t[:, None]
+
+    plt.figure(figsize=(30, 4.8*3))
+    plt.plot(times[:1000], disturbance_integral[:1000, :])
+    plt.legend(['a_x', 'a_y', 'a_z', 'Mx', 'My', 'Mz'])
+    plt.xlabel('Time [s]')
+    plt.ylabel('Disturbance values [N] or [Nm]')
+    plt.tight_layout()
+    plt.savefig(filepath('turbulence_integral.png', path), dpi=300)
+    
 
     plt.close('all')
 
@@ -226,6 +291,7 @@ def simulate(times, initial_state, target, *, \
     flight_mode_list = []
     set_points_array = np.zeros([len(times), 12])
     input_array = np.zeros([len(times), 4])
+    disturbance_array = np.zeros([len(times), 6])
 
     for i in range(1, len(times)):
         current_state = states[-1]
@@ -237,7 +303,8 @@ def simulate(times, initial_state, target, *, \
         
         # simulate to next timestep
         simulation_args = (thruster_inputs, time_step)
-        new_state = solve_ivp(model.simulate_response,  [0, time_step], current_state, args=simulation_args, method='RK23').y[:, -1]
+        new_state, disturbance = solve_ivp(model.simulate_response, current_state, [0, time_step], args=simulation_args)
+        new_state = new_state[-1]
 
         # save values for analysis
         states.append(new_state)
@@ -245,6 +312,7 @@ def simulate(times, initial_state, target, *, \
         flight_mode_list.append(flight_mode)
         set_points_array[i] = set_point
         input_array[i] = inputs
+        disturbance_array[i] = disturbance
 
         # Check if the drone has crashed
         if new_state[2] < 0:
@@ -252,59 +320,71 @@ def simulate(times, initial_state, target, *, \
             break
         
     times = times[:len(states)]
+    set_points_array = set_points_array[:len(states)]
+    flight_mode_list = flight_mode_list[:len(states)]
+    input_array = input_array[:len(states)]
+    disturbance_array = disturbance_array[:len(states)]
     
-    return np.array(states), times, np.array(set_points_array), thruster_values, flight_mode_list, input_array
+    thruster_values = thruster_values[:len(states)]
+    
+    return np.array(states), times, np.array(set_points_array), thruster_values, flight_mode_list, input_array, model.crashed, disturbance_array
 
 
 
 if __name__ == "__main__":
-    time_step = 0.02
+    time_step = 0.001   # [s]
+    time_end = 2     # [s]
+
+    sensitivity_iter_max = 600
 
     # Target position: x, y, psi(heading)
-    target = np.array([137, 90, 1.7])
+    target = np.array([200, 300, 1.7])
+    print(f"distance = {np.linalg.norm(target[0:2])}")
 
-    # Define constants
-    mass = 60.0
+    # True mass constants
+    mass= 60.0    # point to vary around in the sensitivy analysis
     moment_inertia = np.diag([5, 5, 8])
     moment_inertia_prop = 0.096
+
+    thrust_to_weight_range = [0.7, 1.3]
+    skew_factor = 1.0
     
-    # PID_Params given in the following structure: 
-    # [P, I, D, wind_up_limit, clip_limit]
     speed_target = 30
     speed_closing = 3
     precision_speed = speed_closing/10
 
     max_angle = 30 * np.pi/180
-    
+    # PID_Params given in the following structure: 
+    # [P, I, D, wind_up_limit, clip_limit]
     pid_params = [
         # Angles -> Thruster_inputs
         [0.4, 0.05, 0.8, 3], # Phi
         [0.4, 0.05, 0.8, 3], # Theta
         [0.5, 0.1, 0.3, 3], # Psi
         # Positions -> Angles
-        [0.18, 0.0005, 0.7, 1, precision_speed],   # X
-        [0.18, 0.0005, 0.7, 1, precision_speed],   # Y
-        [1.5, 0.15, 5, 3, 10],   # exception in Z: Position -> thrust
+        [0.2, 0.001, 1.7, 1, precision_speed],   # X
+        [0.2, 0.001, 1.7, 1, precision_speed],   # Y
+        [1.7, 0.2, 6, 2, 10],   # exception in Z: Position -> thrust
         # Velocities -> Angles
         [3, 0.008, 5, 10, max_angle],   # Velocity X
         [-3, -0.008, -5, 10, max_angle],   # Velocity Y
         [10, 0.016, 4, 20],   # exception in Z: Velocity -> thrust
         ]
 
-    thrust_to_weight_range = [0.7, 1.3]
-    skew_factor = 1.0
-    # estimated_mass, pid_params
-    flight_controller_args = [
-        mass*skew_factor,
-        pid_params
-    ]
-
     arm_length = 2
     propellor_thrust_coefficient = 0.02
     propellor_power_coefficient = 0.0032
     propellor_radius = 1.3
 
-    # arm_length, ENV, thrust_to_weight_range, propellor_ct, propellor_cq, propellor_r
+    motor_natural_frequency = 15
+    motor_damping = 1.05
+
+    # Class parameters
+    flight_controller_args = [
+        mass*skew_factor,
+        pid_params
+    ]
+
     flight_controller_kwargs = {
         'arm_length': arm_length,
         'thrust_to_weight_range': thrust_to_weight_range,
@@ -312,8 +392,6 @@ if __name__ == "__main__":
         'propellor_power_coefficient': propellor_power_coefficient,
         'propellor_radius': propellor_radius,
     }
-
-    
 
     flight_computer_args = [
         speed_target,
@@ -331,9 +409,6 @@ if __name__ == "__main__":
         moment_inertia_prop
     ]
 
-    motor_natural_frequency = 15
-    motor_damping = 1.05
-
     model_kwargs = {
         'propellor_thrust_coefficient': propellor_thrust_coefficient,
         'propellor_power_coefficient': propellor_power_coefficient,
@@ -344,8 +419,6 @@ if __name__ == "__main__":
         'motor_damping': motor_damping
     }
 
-    # Define time, initial values and targets
-    time_end = 1200 #s
     times = np.arange(0, time_end + time_step, time_step)
 
     initial_state = np.zeros(12)
@@ -355,26 +428,120 @@ if __name__ == "__main__":
     
     # Simulate
     print('Simulating...')
-    states, times, setpoints, thruster_values, flight_mode_list, input_array = simulate(times, initial_state, target, \
+    states, times, setpoints, \
+    thruster_values, flight_mode_list, \
+    input_array, crashed, disturbance = simulate(times, initial_state, target,\
                                                     flight_computer_args=flight_computer_args, \
                                                     flight_computer_kwargs=flight_computer_kwargs,\
                                                     model_args=model_args, model_kwargs=model_kwargs)
 
     print('Plotting...')
-    # Plot
-    plot_figures(states, times, setpoints, thruster_values, flight_mode_list, input_array)
+    plot_figures(states, times, setpoints, thruster_values, flight_mode_list, input_array, disturbance)
     
-    # Speed target
     
+    # Mass
+    mass_varied = mass
+    # Thrust
+    thrust_varied = thrust_to_weight_range
+    # Mass skew factor
+    skew_factor_varied = 1
 
-    # Flight controller arguments
-    # estimated_mass, pid_params, *, arm_length=2, ENV=None, thrust_to_weight_range=None, \
-    # propellor_thrust_coefficient=None, propellor_power_coefficient=None, propellor_radius=None
+    # sensitivity analysis
+    data_path = ['ControlAnalysis', 'Data']
 
-    # Flight computer arguments
-    # self, speed_target, *, FlightController_args, FlightController_kwargs
+    i_max = 4*math.floor(sensitivity_iter_max/4)
 
-    # Model arguments
-    # mass, moment_inertia, moment_inertia_prop, *, \
-    # propellor_thrust_coefficient, propellor_power_coefficient, propellor_radius, \
-    # thrust_to_weight_range=None, ENV=None, arm_length=2, motor_lag_term_time_constant=0.1
+
+    try:
+        start_i = find_highest_index(os.path.join(*data_path), 'flight_data_', '.npz')+1
+    except FileNotFoundError as e:
+        print(e)
+        start_i = 0
+    
+    print('Sensitivity analysis...')
+    for i in range(start_i, start_i+i_max):
+        if i >= 400:
+            print('Sensitivity analysis complete...')
+            break
+
+        print(f'Iteration {i}: {round((i-start_i) / i_max, 4)}')
+
+        times = np.arange(0, time_end + time_step, time_step)
+
+        # Mass
+        if 0 <= i < i_max//4 or i >= i_max//4*3:
+            mass_varied = rand.uniform(0.9, 1.1) * mass
+        else:
+            mass_varied = mass
+        # Thrust
+        if i_max//4 <= i < 2*i_max//4 or i >= i_max//4*3:
+            thrust_varied = np.random.uniform(0.9, 1.1, 2) * thrust_to_weight_range
+        else:
+            thrust_varied = thrust_to_weight_range
+        # Mass skew factor
+        if 2*i_max//4 <= i < 3*i_max//4 or i >= i_max//4*3:
+            skew_factor_varied = rand.uniform(0.95, 1.05)
+        else:
+            skew_factor_varied = 1
+
+        
+
+        # Class parameters
+        flight_controller_args = [
+            mass_varied*skew_factor_varied,
+            pid_params
+        ]
+
+        flight_controller_kwargs = {
+            'arm_length': arm_length,
+            'thrust_to_weight_range': thrust_varied,
+            'propellor_thrust_coefficient': propellor_thrust_coefficient,
+            'propellor_power_coefficient': propellor_power_coefficient,
+            'propellor_radius': propellor_radius,
+        }
+
+        flight_computer_args = [
+            speed_target,
+            speed_closing
+        ]
+
+        flight_computer_kwargs = {
+            'FlightController_args': flight_controller_args,
+            'FlightController_kwargs': flight_controller_kwargs,
+        }
+
+        model_args = [
+            mass_varied,
+            moment_inertia,
+            moment_inertia_prop
+        ]
+
+        model_kwargs = {
+            'propellor_thrust_coefficient': propellor_thrust_coefficient,
+            'propellor_power_coefficient': propellor_power_coefficient,
+            'propellor_radius': propellor_radius,
+            'thrust_to_weight_range': thrust_varied,
+            'arm_length': arm_length,
+            'motor_natural_frequency': motor_natural_frequency,
+            'motor_damping': motor_damping
+        }
+        
+
+        states, times, setpoints, \
+        thruster_values, flight_mode_list, \
+        input_array, crashed, disturbance = simulate(times, initial_state, target,\
+                                                    flight_computer_args=flight_computer_args, \
+                                                    flight_computer_kwargs=flight_computer_kwargs,\
+                                                    model_args=model_args, model_kwargs=model_kwargs)
+        
+
+        flight_modes = ['nominal', 'close', 'land', 'climb', 'altitude', 'attitude']
+        mode_to_index = {status: index for index, status in enumerate(flight_modes)}
+
+        flight_mode_list_indexed = [mode_to_index[mode] for mode in flight_mode_list]
+        
+        np.savez(filepath(f'flight_data_{i}.npz', data_path), 
+        states=states, times=times, setpoints=setpoints, thruster_values=thruster_values, 
+        flight_mode_list=flight_mode_list_indexed, input_array=input_array, crashed=crashed,
+        mass=mass_varied, skew_factor=skew_factor_varied, thrust=thrust_varied)
+
