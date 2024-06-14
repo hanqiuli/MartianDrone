@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-from SE_data import SEData, data_path, backup_path  
+from SETools.SE_data import SEData, data_path, backup_path
 from scipy.spatial import ConvexHull
 
 data = SEData(data_path, backup_path)

@@ -131,7 +131,7 @@ plt.show()
 #innputs
 from solar_flux_analysis import get_avg_solar_flux
 baseline_power = 30
-energy_required_flight_Wh = 1730
+energy_required_flight_Wh = 1655
 
 energy_required_flight= energy_required_flight_Wh*3600 #Energy required to charge battery for one flight [J]
 days, flux_yearly_profile = get_avg_solar_flux('Solar_Flux.txt')

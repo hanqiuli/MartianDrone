@@ -47,7 +47,7 @@ class Blade:
             raise ValueError("Airfoil name stations must have the same length as the radial nondimensional stations.")
         
         self.small_angle_approx = small_angle_approx
-        self.num_radial_elements = 100
+        self.num_radial_elements = 1000
         self.num_alpha_elements = 1000
         self.radius_rotor = radius_rotor
         self.num_blades = num_blades
@@ -95,8 +95,8 @@ class Blade:
         self.cds_stations = np.array(self.cds_stations)
         alphas_stations = np.linspace(0.0, 10.0, 11)
         alphas = np.linspace(0.0, 10.0, self.num_alpha_elements)
-        self.cls = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cls_stations, kx=1, ky=3)(self.radial_nondim, alphas)
-        self.cds = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cds_stations, kx=1, ky=3)(self.radial_nondim, alphas)
+        self.cls = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cls_stations, kx=1, ky=1)(self.radial_nondim, alphas)
+        self.cds = interpolate.RectBivariateSpline(self.radial_nondim_stations, alphas_stations, self.cds_stations, kx=1, ky=1)(self.radial_nondim, alphas)
         self.cls = np.array(self.cls)
         self.cds = np.array(self.cds)
         cl0 = self.cls[:,0]
@@ -140,6 +140,7 @@ class Blade:
         else:
             self.inflow = np.tan(self.inflow_angle)
         self.induced_velocity = self.inflow * self.speed_tip
+        
 
     def calculate_thrust_coefficient(self):
         """Calculates:
@@ -200,5 +201,55 @@ class Blade:
         self.speed = self.speed_tip * self.radial_nondim
         self.reynolds = density_air * self.speed * self.chord / viscosity_air
 
+    def calculate_forward_flight_wake(self, mass: float, density_air: float):
+        max_iterations: int = 10
+        relaxation_factor: float = 0.5
 
+        self.inflow_hover = self.power_induced_coefficient_rotor / self.thrust_coefficient_rotor
+        self.advance_ratio = np.linspace(0.0, 0.5, 100)
+        self.drag_area = 0.3048**2 / (2.20462**(2/3)) * 2.5 * (mass / 1000)**(2/3)
+        self.weight = mass * 3.71
+        self.airspeed = self.advance_ratio * self.speed_tip
+        self.dynamic_pressure = 0.5 * density_air * self.airspeed**2
+        self.drag = self.drag_area * self.dynamic_pressure
+        self.incidence_angle = self.drag / self.weight
+        self.normal_ratio = self.advance_ratio * self.incidence_angle
+        
+        lambda_ = self.inflow_hover**2 / np.sqrt((self.inflow_hover + self.normal_ratio)**2 + self.advance_ratio**2) + self.normal_ratio
+        lambda_i = np.ones_like(self.advance_ratio)
 
+        for _ in range(max_iterations):
+            lambda_i = self.inflow_hover**2 / np.sqrt(lambda_**2 + self.advance_ratio**2)
+            lambda_ = lambda_ - relaxation_factor * (lambda_ - self.normal_ratio - lambda_i) / (1 + lambda_i * lambda_ / (lambda_**2 + self.advance_ratio**2))
+
+        self.inflow_fwd = lambda_
+        self.inflow_fwd_induced = lambda_i
+        # assert ((self.inflow_fwd - self.inflow_fwd_induced - self.normal_ratio).all() < 1e-3), "Inflow calculation failed."
+        # print(np.max(self.inflow_fwd - self.inflow_fwd_induced - self.normal_ratio))
+        
+        # plt.plot(self.advance_ratio, self.inflow_fwd, label='Total Inflow')
+        # plt.plot(self.advance_ratio, self.inflow_fwd_induced, label='Induced Inflow')
+        # plt.plot(self.advance_ratio, self.normal_ratio, label='Normal Inflow')
+        # plt.xlabel('Advance Ratio [-]')
+        # plt.ylabel('Inflow Ratio [-]')
+        # plt.legend()
+        # plt.show()
+
+    # def calculate_forward_flight(self, density_air: float):
+    #     pass
+            
+    # # def calculate_lift(self, advance_ratio: float, density_air: float):
+    # #     self.speed_tangent_nondim_squared = self.radial_nondim**2 + 0.5 * advance_ratio**2
+    # #     self.speed_radial_nondim_squared = 0.5 * advance_ratio**2
+    # #     self.speed_normal_nondim_squared = self.inflow**2
+    # #     self.speed_tangent_squred = self.speed_tangent_nondim_squared * self.speed_tip**2
+    # #     self.speed_radial_squared = self.speed_radial_nondim_squared * self.speed_tip**2
+    # #     self.speed_normal_squared = self.speed_normal_nondim_squared * self.speed_tip**2
+    # #     self.speed_nondim_squared = self.speed_tangent_nondim_squared + self.speed_normal_nondim_squared
+    # #     self.speed_squared = self.speed_tangent_squred + self.speed_normal_squared
+    # #     self.lift = 0.5 * density_air * self.speed_squared * self.chord * self.cl
+    # #     self.drag = 0.5 * density_air * self.speed_squared * self.chord * self.cd
+    # #     self.force_z = self.lift * np.cos(self.inflow_angle) - self.drag * np.sin(self.inflow_angle)
+    # #     self.force_x = self.lift * np.sin(self.inflow_angle) + self.drag * np.cos(self.inflow_angle)
+    # #     self.dCTdr = 0.5 * self.solidity * self.force_z / self.chord
+    # #     self.d

@@ -10,27 +10,31 @@ from environment_properties import ENV
 # region Constants
 rho_air     = ENV['rho']    # [kg/m^3]      Air density
 g           = ENV['g']      # [m/s^2]       Gravitational acceleration
-dyn_vsc_air = ENV['mu']   # [Pa*s]        Air dynamic viscosity
 temp_amb    = 220       # [K]           Ambient temperature
 cp_air      = 772       # [J/(kg*K)]    Specific heat capacity of air
-k_air       = 0.024     # [W/(m*K)]     Air thermal conductivity
+k_air       = 0.0209     # [W/(m*K)]     Air thermal conductivity (5e-5 cal/cm sK)
 sigma       = 5.67e-8   # Stefan-Boltzmann constant [W/(m^2*K^4)]
+temp0 = 273
+s = 222
 
+dyn_vsc_air = 1.4e-5    # [m^2/s]   Air dynamic viscosity
 kin_vsc_air = dyn_vsc_air / rho_air         # [m^2/s]   Air kinematic viscosity
 alpha_air   = k_air / (rho_air * cp_air)    # [m^2/s]   Air thermal diffusivity
+
+
 beta_air    = 1 / temp_amb                  # [1/K]     Air thermal expansion coefficient
 
 temp_init   = 273.15 - 10   # [K]   Initial motor temperature
-temp_max    = 273.15 + 100  # [K]   Maximum motor temperature
+temp_max    = 273.15 + 40  # [K]   Maximum motor temperature
 
 # Rotorcraft parameters
-power_motor_total   = 7232      # [W]   Total power of the motors
-eff_motor           = 0.70      # [-] Motor efficiency
+power_motor_total   = 5500      # [W]   Total power of the motors
+eff_motor           = 0.75      # [-] Motor efficiency
 
 mass                = 49.2      # [kg]  Total mass of the rotorcraft
 mass_motor_total    = 3.125     # [kg]  Total mass of the motors
 power_rotor_total   = power_motor_total*eff_motor   # [W]   Total power of the rotors
-r_rotor             = 1.31      # [m]   Rotor radius
+r_rotor             = 1.1      # [m]   Rotor radius
 n_rotors            = 6         # [-]   Number of rotors
 
 weight  = mass * g                          # [N]   Maximum thrust
@@ -51,10 +55,10 @@ t_cruise = 20*60  # in seconds
 # endregion
 
 # region Fin calculations
-L_fin   = 0.15  # [m]       Fin length
+L_fin   = 0.20  # [m]       Fin length
 H_fin   = 0.04  # [m]       Fin height
 t_fin   = 0.002 # [m]       Fin thickness
-s_fin   = 0.005 # [m]       Fin spacing
+s_fin   = 0.01 # [m]       Fin spacing
 rho_fin = 2700  # [kg/m^3]  Fin density
 
 n_fins  = np.floor(np.pi * D_motor / (t_fin + s_fin))           # [-]   Number of fins
@@ -69,17 +73,17 @@ mass_fin = volume_fin * rho_fin             # [kg] Fin mass
 mass_fin_total = mass_fin * n_rotors        # [kg] Total fin mass
 mass_motor_total = mass_motor * n_rotors    # [kg] Total motor mass
 
-print('--- FIN PARAMETERS ---')
-print(f'n_fins: {n_fins}')
-print(f'A_b: {A_b} m^2')
-print(f'A_f: {A_f} m^2')
-print(f'A_c: {A_c} m^2')
-print(f'P_fin: {P_fin} m')
-print(f'Total area: {A_f_tot} m^2')
-print(f'Fin volume: {volume_fin} m^3')
-print(f'Fin mass: {mass_fin} kg')
-print(f'Total fin mass: {mass_fin_total} kg')
-print(f'Total motor mass excl. fins: {mass_motor_total} kg')
+# print('--- FIN PARAMETERS ---')
+# print(f'n_fins: {n_fins}')
+# print(f'A_b: {A_b} m^2')
+# print(f'A_f: {A_f} m^2')
+# print(f'A_c: {A_c} m^2')
+# print(f'P_fin: {P_fin} m')
+# print(f'Total area: {A_f_tot} m^2')
+# print(f'Fin volume: {volume_fin} m^3')
+# print(f'Fin mass: {mass_fin} kg')
+# print(f'Total fin mass: {mass_fin_total} kg')
+# print(f'Total motor mass excl. fins: {mass_motor_total} kg')
 # endregion
 
 # region Heat transfer functions
@@ -94,6 +98,7 @@ def calc_Re(kin_vsc_air, L_fin, w_rotor): # Reynolds number
 
 def calc_Nu(Re, Pr): # Nusselt number
     return 0.664 * Re**(1/2) * Pr**(1/3)
+
 
 def calc_h(Nu, k_air, L_fin): # Convective heat transfer coefficient
     return Nu * k_air / L_fin
