@@ -3,27 +3,40 @@ from sympy.solvers import solve
 from sympy import Symbol
 from scipy.integrate import odeint, solve_ivp
 import matplotlib.pyplot as plt
+import scienceplots
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
 
-power1 = 5482
-power2 = 4112
+def solve_ivp1(dydx, y0, t_eval, args):
+    """
+    Solve an initial value problem using the forward euler method.
+    """
+    y = np.zeros([len(t_eval), len(y0)])
+    y[0] = y0
+    print(args)
+
+    for i, t in enumerate(t_eval[1:]):
+        dt = t_eval[i+1] - t_eval[i]
+        y[i+1] = y[i] + dt*dydx(t, y[i], *args)
+    
+    return y
+
+power1 = 5682
+power2 = 4262
 
 # Physical/environmental constants
 g = 3.71             # Gravitational acceleration [m/s^2]
-sigma = 5.67e-8           # Stefan-Boltzmann constant [W/(m^2*K^4)]
+sigma = 5.670374419e-8           # Stefan-Boltzmann constant [W/(m^2*K^4)]
 
-#HOT
-rho_air = 1.3e-2          # Air density [kg/m^3]
-dyn_vsc_air = 1.4e-5      # Air dynamic viscosity [Pa*s]
-temp_amb = 274            # Ambient temperature [K]
-cp_air = 8.3e+2           # Specific heat capacity of air [J/(kg*K)]
+#HOT Ls 250.0deg. Latitude -23.8953N. Longitude 326.7436E. Altitude 100.0 m ALS. Local time 16.0h
+rho_air = 0.012711885          # Air density [kg/m^3]
+dyn_vsc_air = 1.3767785e-05      # Air dynamic viscosity [Pa*s]
+temp_amb = 268.59            # Ambient temperature [K]
+cp_air = 826.26587           # Specific heat capacity of air [J/(kg*K)]
 
-#COLD
-# rho_air = 1.6e-2          # Air density [kg/m^3]
-# dyn_vsc_air = 1.0e-5      # Air dynamic viscosity [Pa*s]
-# temp_amb = 204            # Ambient temperature [K]
-# cp_air = 7.6e+2           # Specific heat capacity of air [J/(kg*K)]
 
-k_air = 0.0209            # Air thermal conductivity [W/(m*K)]
+k_air = 14.7e-3              # Air thermal conductivity [W/(m*K)]
+
 kinematic_air_viscosity = dyn_vsc_air / rho_air  # Kinematic viscosity [m^2/s]
 
 class FinParameters:
@@ -37,10 +50,17 @@ class FinParameters:
         self.diameter_motor = 0.06        # Motor diameter [m]
         self.velocity_downwash_rotor = 15  # Rotor downwash velocity [rad/s]
 
+        self.height_fin = 0.15             # Fin height [m]
+        self.rotrate = 151.083             # Rotational rate [rad/s]
+        self.velocity_swirl = self.velocity_downwash_rotor**2 * (2*self.rotrate*(self.height_fin+self.diameter_motor))/((self.rotrate*(self.height_fin+self.diameter_motor))**2 + 2**(1/2)*self.velocity_downwash_rotor**2)  # Swirl velocity [m/s]
+        print("Swirl velocity: ", self.velocity_swirl)
         # Fin parameters
-        self.length_fin = 0.051             # Fin length [m]
-        self.height_fin = 0.17             # Fin height [m]
-        self.thickness_fin = 0.003         # Fin thickness [m]
+        self.flow_angle = np.arctan2(self.velocity_swirl, self.velocity_downwash_rotor)  # Flow angle [rad]
+        print("Flow angle: ", self.flow_angle/np.pi*180)
+
+        self.length_fin = 0.051/np.cos(self.flow_angle)          # Fin length [m]
+        print("fin length: ", self.length_fin)
+        self.thickness_fin = 0.0024         # Fin thickness [m]
         self.num_fins = num_fins           # Number of fins [-]
         self.density_fin = 2700            # Fin density [kg/m^3]
 
@@ -87,11 +107,13 @@ class FinParameters:
     def calc_prandtl_num(self):
         """Calculate the Prandtl number."""
         self.prandtl_num = kinematic_air_viscosity / self.calc_thermal_diffusivity()
+        # print('Prandtl number: ', self.prandtl_num)
         return self.prandtl_num
 
     def calc_reynolds_num(self):
         """Calculate the Reynolds number."""
         self.reynolds_num = self.velocity_downwash_rotor * self.length_fin / kinematic_air_viscosity
+        # print('Reynolds number: ', self.reynolds_num)
         return self.reynolds_num
 
     def calc_nusselt_number(self):
@@ -106,11 +128,11 @@ class FinParameters:
 
     def calc_efficiency_fin(self):
         """Calculate the efficiency of the fin."""
-        const = np.sqrt(self.coefficient_convection * self.perimeter_fin / (self.conductivity_motor * self.area_fin_crosssection))
-        numerator_1 = np.sqrt(self.coefficient_convection * self.perimeter_fin * self.conductivity_motor * self.area_fin_crosssection)
-        numerator_2 = np.tanh(const * self.height_fin) + self.coefficient_convection / (const * self.conductivity_motor)
-        denominator_1 = self.coefficient_convection * self.area_fin
-        denominator_2 = 1 + self.coefficient_convection / (const * self.conductivity_motor) * np.tanh(const * self.height_fin)
+        const = np.sqrt(self.calc_coefficient_convection() * self.perimeter_fin / (self.conductivity_motor * self.area_fin_crosssection))
+        numerator_1 = np.sqrt(self.calc_coefficient_convection() * self.perimeter_fin * self.conductivity_motor * self.area_fin_crosssection)
+        numerator_2 = np.tanh(const * self.height_fin) + self.calc_coefficient_convection() / (const * self.conductivity_motor)
+        denominator_1 = self.calc_coefficient_convection() * self.area_fin
+        denominator_2 = 1 + self.calc_coefficient_convection() / (const * self.conductivity_motor) * np.tanh(const * self.height_fin)
         self.efficiency_fin = numerator_1 / denominator_1 * numerator_2 / denominator_2
         return self.efficiency_fin
 
@@ -118,24 +140,31 @@ class FinParameters:
         """Calculate the thermal resistance."""
         self.thermal_resistance = 1 / (self.calc_coefficient_convection() * (self.calc_efficiency_fin() * self.num_fins * self.area_fin + self.area_unfinned))
         return self.thermal_resistance
+    
+    def calc_area_effective(self):
+        """Calculate the effective area of the fin."""
+        self.area_effective = self.calc_efficiency_fin() * self.num_fins * self.area_fin + self.area_unfinned
+        return self.area_effective
+
 
 fins = FinParameters()
-print(fins.calc_prandtl_num())
 fin_mass = fins.mass_fin
 fin_mass_total = fins.mass_fin_total
 print("fin mass: " + str(fin_mass))
 print("fin mass total: " + str(fin_mass_total))
-area_total = fins.area_fin_total
+area_total = fins.calc_area_effective()
 area_top = fins.area_fin_crosssection_total
 thermal_resistance = fins.calc_thermal_resistance()
 f_re = 1-fins.calculate_gebhart()
-print(f_re)
 
 time_n = 45*2+1000+600
 prop_power = np.ones(time_n)
 prop_power[0:45] = power1
 prop_power[45:time_n-45] = power2
 prop_power[time_n-45:time_n] = power1
+extra_time = 250
+prop_power = np.concatenate((prop_power,np.zeros(extra_time)))
+time_n += extra_time
 
 heat_balance_hot = {
     'temperature_atmosphere': temp_amb,  # [K] - Atmospheric temperature
@@ -300,21 +329,26 @@ class MotorHeatTransfer:
         """
         t = np.arange(0, time_n)
         y0 = np.array([self.temperature_atmosphere])
-        temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_span=[t[0], t[-1]], t_eval=t, args=[t]).y.T
+        # temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_span=[t[0], t[-1]], t_eval=t, args=[t], method='DOP853').y.T
+        temperature = solve_ivp1(self.temperature_time_derivative, y0=y0, t_eval=t, args=[t])
         return temperature, t
     
     def plot_temp_time(self):
         """
         Plots the temperature of the battery over time.
         """
+        plt.figure(figsize=(5,4))
         y, t = self.solve_temperature_time()
         max_x = t[np.argmax(y)]
         max_y = np.max(y)
-        plt.scatter(max_x, max_y,c='r', label=f'maximum: {max_y}')
+        plt.scatter(max_x, max_y,c='r', label=f'Maximum Temperature: {round(max_y,2)}K')
+        plt.axhline(y = 363, linestyle = '--', label='Maximum Allowable Temperature: 363K') 
         plt.plot(t, y)
-        plt.xlabel('t')
-        plt.ylabel('T(t)')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Temperature [K]')
         plt.legend()
+        plt.xlim([t[0], t[-1]])
+        plt.savefig('ThermalTools/motor_temperature.pdf')
         plt.show()
         pass
 

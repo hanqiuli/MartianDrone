@@ -2,7 +2,9 @@ import numpy as np
 from sympy.solvers import solve
 from sympy import Symbol
 import matplotlib.pyplot as plt
-
+import scienceplots
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
 
 def solve_ivp(dydx, y0, t_eval, args):
     """
@@ -10,7 +12,6 @@ def solve_ivp(dydx, y0, t_eval, args):
     """
     y = np.zeros([len(t_eval), len(y0)])
     y[0] = y0
-    print(args)
 
     for i, t in enumerate(t_eval[1:]):
         dt = t_eval[i+1] - t_eval[i]
@@ -38,7 +39,7 @@ area_total = (h_battery*w_battery*2 + 2*l_battery*w_battery + 2*h_battery*l_batt
 area_top = l_battery*w_battery
 mass_battery = 10.25  # [kg] - Mass of the battery
 capacity_battery = 1100
-emissivity_battery = 0.1
+emissivity_battery = 0.035
 
 # Insulator properties
 thermal_conductivity = 0.035  # [W/m*K] - Thermal conductivity of the insulator (Cork)
@@ -382,7 +383,7 @@ heat_balance_maxtemp = {
     'stefan_boltzmann_constant': 5.6704e-8,  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
         # battery properties
-    'heat_rate_internal': 20,  # [W] - Heat from internal sources
+    'heat_rate_internal': 15,  # [W] - Heat from internal sources
 
     'coefficient_convection': 1,  # [W/m^2*K] - Convection coefficient
     'area_total': area_total,  # [m^2] - Total surface area of the battery
@@ -656,6 +657,7 @@ class BatteryHeatTransfer:
             self.heating_active = True
         elif temperature_battery > self.temperature_setpoint + 0.5:
             self.heating_active = False
+        # self.heating_active = True
             
         
         #print(temperature_battery, self.heat_rate_internal * self.heating_active)
@@ -728,9 +730,9 @@ class BatteryHeatTransfer:
         Returns:
             The temperature of the battery over time [K] [s].
         """
-        t = np.linspace(0, 24, 24*60*30)
+        t = np.linspace(0, 24, 88775)
 
-        t *= 3600
+        t *= 88775/24
         y0 = np.array([260])
         temperature = solve_ivp(self.temperature_time_derivative, y0=y0, t_eval=t, args=[t])
         temperature = solve_ivp(self.temperature_time_derivative, y0=temperature[-1], t_eval=t, args=[t])
@@ -740,21 +742,26 @@ class BatteryHeatTransfer:
         """
         Plots the temperature of the battery over time.
         """
+        plt.figure(figsize=(5,4))
         y, t = self.solve_temperature_time()
-        t /= 3600
+        t /= 88775/24
         min_x = t[np.argmin(y)]
         min_y = np.min(y)
-        plt.scatter(min_x, min_y,c='r', label=f'minimum: {round(min_y,1)}K')
+        plt.scatter(min_x, min_y,c='r', marker="X", label=f'Minimum Temperature: {round(min_y,2)}K')
         max_x = t[np.argmax(y)]
         max_y = np.max(y)
-        plt.scatter(max_x, max_y,c='r', label=f'maximum: {round(max_y,1)}K')
+        plt.scatter(max_x, max_y,c='r', label=f'Maximum Temperature: {round(max_y,2)}K')
+        plt.axhline(y = 273+40, linestyle = '--', label='Maximum Allowable Temperature: 313K') 
+        plt.axhline(y = 273-20, linestyle = '-.', label='Minimum Allowable Temperature: 253K') 
         plt.plot(t, y)
-        plt.xlabel('Time [h]')
+        plt.xlabel('Local Time [Martian hour]')
         plt.ylabel('Temperature [K]')
         plt.xlim([0, t[-1]])
         plt.xticks(np.arange(0, t[-1], 2))
-        plt.legend()
+        plt.legend(loc='upper right', bbox_to_anchor=(1, 0.85))
+        plt.savefig('ThermalTools/temperature_time.pdf')
         plt.show()
+        plt.plot(t, y)
         pass
 
 

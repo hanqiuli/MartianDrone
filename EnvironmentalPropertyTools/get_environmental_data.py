@@ -2,6 +2,18 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
+import scienceplots
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
+
+from matplotlib.image import imread
+from matplotlib.colors import LinearSegmentedColormap
+img = imread("C:/Users/sebas/Downloads/image.png")
+# img is 30 x 280 but we need just one col
+colors_from_img = img[:, 30, :]
+# commonly cmpas have 256 entries, but since img is 280 px => N=280
+my_cmap = LinearSegmentedColormap.from_list('my_cmap', colors_from_img, N=40)
+my_cmap = my_cmap.reversed()
 
 class DataGathering:
     def __init__(self, file_name):
@@ -60,17 +72,19 @@ class DataGathering:
         interpolated_values = interp(points).reshape(len(new_days), len(new_time_axis))
         return interpolated_values
 
-    def plot_data(self, title='Data Plot', xlabel='X-axis', ylabel='Y-axis', cmap='seismic'):
+    def plot_data(self, propertylabel='Property [?]', xlabel='X-axis', ylabel='Y-axis', cmap='coolwarm'):
         '''Plot the given data'''
-        
-        plt.contourf(self.property.T, cmap=cmap, levels=20)
-        plt.yticks(range(len(self.time_axis)), self.time_axis, size='small')
-        plt.xticks(range(len(self.days)), self.days, size='small', rotation=90)
-        plt.colorbar()
+        print(self.property)
+        plt.figure(figsize=(5, 4))
+        plt.contourf(self.property.T, cmap=my_cmap, levels=40)
+        plt.yticks(range(25)[::4], self.time_axis[::4], size='small')
+        plt.xticks(range(25)[::3], self.days[::3], size='small', rotation=90)
+        plt.colorbar(label=propertylabel)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        plt.title(title)
-        plt.show()
+        plt.tight_layout()
+        plt.savefig('EnvironmentalPropertyTools/plots/'+data_file+'.pdf')
+        # plt.show()
 
     def find_extreme_day(self, extreme='max'):
         """Finds the day with extreme average temperature
@@ -78,6 +92,7 @@ class DataGathering:
         Returns:
             tuple: (extreme_average_temperature, day_data, day_index)
         """
+        
         # Calculate daily average temperature
         interpolated_data = self.interpolate_data(self.interp_days, self.interp_time)
         interpolated_data = np.maximum(interpolated_data,0)
@@ -96,11 +111,9 @@ class DataGathering:
         extreme_average = daily_average_property[day_index]
         return extreme_average, day_data, self.interp_days[day_index]
 
-
-
-# Example usage
-dg = DataGathering("EnvironmentalPropertyTools/data/1m/incident_solar_flux_horizontal_1m.txt")  # Replace with your data file name
-# dg = DataGathering("EnvironmentalPropertyTools/data/100m/temperature_100m.txt")  # Replace with your data file name
+data_file = "temperature_1m"
+# Data file
+dg = DataGathering("EnvironmentalPropertyTools/data/"+data_file+'.txt')  # Replace with your data file name
 
 extreme = "min"
 min_property, day_data, day_index = dg.find_extreme_day(extreme)
@@ -110,4 +123,4 @@ print(f"Average property: {min_property}")
 print(f"Data for the day: {repr(day_data)}")
 
 temp, time, days = dg.get_data()
-dg.plot_data(title='Property [?K]', xlabel='Martian Day', ylabel='Martian Time [h]')
+dg.plot_data(propertylabel='Temperature at $100m$ [$K$]', xlabel='Areocentric longitude [deg]', ylabel='Local Time [Martian hour]')
