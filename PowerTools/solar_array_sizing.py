@@ -13,6 +13,7 @@ import scipy as sp
 time_mars_day = 88775 #Average Martian day duration [sec]
 from power_load_profile import get_average_power_mission
 from solar_flux_analysis import plot_solar_flux_daily
+import scienceplots
 
 '''
 This file will size the solar arrays to produce the average power required at average solar flux values.
@@ -42,7 +43,7 @@ battery_efficiency = 0.99#[%] need to get better numbers on this
 harness_loss = 0.02 #[%] need to get better numbers on this
 packing_factor = 0.9 #Square cells packing density https://sinovoltaics.com/learning-center/basics/packing-density/#:~:text=The%20solar%20cell's%20packing%20density,module's%20operating%20temperature%20as%20well.
 bus_voltage = 60 #Voltage of power generation bus[V]
-voltage_per_cell = 3.025 #Voltage at max power per cell
+voltage_per_cell = 3.025 #Voltage at max power per 
 cell_area = 30.18 #Cell surface area [cm^2]
 solar_array_density = 2 #Density of solar array [kg/m^2] Typical value, used by MSH, alligns with data from Sparkwing Solar Panel	and https://exoterracorp.com/products/power/ 
 average_power_required = get_average_power_mission()
@@ -117,6 +118,8 @@ for i in range(len(time_series)):
     power_generation_time_t = design_solar_flux * solar_cell_efficiency * array_reference_area * (1-radiation_degradation_rate)**mission_lifetime * np.cos(np.radians(design_incidence_angle)) * (1-spectrum_shift_factor) * (1-dust_degradation_rate)**time_series[i]
     power_generation_lifetime_profile.append(power_generation_time_t)
 
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
 plt.plot(time_series, power_generation_lifetime_profile)
 plt.title('Daily average power degradation due to dust accumulation')
 plt.xlabel('Sols')
@@ -130,24 +133,41 @@ plt.show()
 #Charge time analysis throughout the year assuming only baseline power systems are active. This will give us an idea whether our system will survive winter and if flying in winter is possible/at what frequency. Conversely, it will give us an idea of the possible flight frequency in summer.
 #innputs
 from solar_flux_analysis import get_avg_solar_flux
-baseline_power = 30
-energy_required_flight_Wh = 1655
+baseline_power_low = 10
+baseline_power_high = 25
+energy_required_flight_Wh = 1930
+energy_required_flight_Wh_winter =1400
+
 
 energy_required_flight= energy_required_flight_Wh*3600 #Energy required to charge battery for one flight [J]
+energy_required_flight_winter = energy_required_flight_Wh_winter*3600
 days, flux_yearly_profile = get_avg_solar_flux('Solar_Flux.txt')
 average_power_generation_yearly_profile_BOL = flux_yearly_profile * solar_cell_efficiency * array_reference_area * np.cos(np.radians(design_incidence_angle)) * (1-spectrum_shift_factor) * active_area_factor
 average_power_generation_yearly_profile_EOL = flux_yearly_profile * solar_cell_efficiency * array_reference_area * (1-radiation_degradation_rate)**mission_lifetime * np.cos(np.radians(design_incidence_angle)) * (1-spectrum_shift_factor) * active_area_factor
+
 baseline_power_consumption_profile = []
 for i in range(len(days)):
-    baseline_power_consumption_profile.append(baseline_power)
+    if average_power_generation_yearly_profile_EOL[i]>96:
+        baseline_power_consumption_profile.append(baseline_power_low)
+    else:
+        baseline_power_consumption_profile.append(baseline_power_high)
+print(average_power_generation_yearly_profile_EOL)
+print(baseline_power_consumption_profile)
 net_power_generation_yearly_profile_BOL = average_power_generation_yearly_profile_BOL - baseline_power_consumption_profile
 net_power_generation_yearly_profile_EOL = average_power_generation_yearly_profile_EOL - baseline_power_consumption_profile
+
 charge_time_profile_BOL = energy_required_flight/net_power_generation_yearly_profile_BOL
 charge_time_profile_EOL = energy_required_flight/net_power_generation_yearly_profile_EOL
-plt.plot(days, charge_time_profile_BOL/3600)
-plt.plot(days, charge_time_profile_EOL/3600)
-plt.legend(['BOL', 'EOL'])
-plt.title('Charge time variation over a Martian year')
+
+
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
+plt.plot(days, charge_time_profile_BOL/3600, label='BOL conditions')
+plt.plot(days, charge_time_profile_EOL/3600, color='orange', label='EOL conditions')
+plt.axhline(y=24.6, color='g', linestyle='--', label='Time to charge = 1 Martian day')
+plt.axhline(y=49.2, color='r', linestyle='--', label='Time to charge = 2 Martian days')
+plt.legend()
+plt.title('Charge time variation over a Martian year considering variable thermal power usage and solar flux availability')
 plt.xlabel('Areocentric longitude [degrees]')
 plt.ylabel('Time to replenish energy required for one flight [hours]')
 plt.show()

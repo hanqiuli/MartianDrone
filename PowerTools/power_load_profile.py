@@ -6,6 +6,8 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
+import scienceplots
+
 
 # Local imports
 # from environment_properties import ENV
@@ -61,7 +63,7 @@ profile_power = {
     'thermal_propulsion': 0,
     'thermal_battery': 20,
     'thermal_avionics':0,
-    'avionics': 44,
+    'avionics': 53.5,
 }
 
 profile_time_2_day_mission = {
@@ -204,6 +206,8 @@ print('design average power [W]', average_power)
 # print(abs(mission_energy_1_day-mission_energy_2_day/2)/mission_energy_1_day*100)
 
 #Plot power profile 2 day mission
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
 plt.plot(time_series_2_day/3600, power_series_2_day, label='power usage')
 plt.title('Power load profile 2 day return mission')
 plt.annotate('Average power usage [W]: '+str(np.round(average_power,2)), (38,300))
