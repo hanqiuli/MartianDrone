@@ -1,6 +1,5 @@
 import sys
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 sys.path.append('.')
@@ -9,16 +8,18 @@ from motor_response import MotorResponse
 
 
 class DisturbanceModel:
-    '''Model of turbulence based on the wiener process'''
+    '''Model of turbulence based on the Wiener process'''
     def __init__(self, weight_array, limits):
         self.weight_array = weight_array
         self.x = np.zeros(len(self.weight_array))
         self.limits = limits
 
-    def get_disturbance(self, dt):
+    def get_disturbance(self, dt, z=0):
         self.x += np.random.normal(0, 1, len(self.weight_array)) * np.sqrt(dt)
         self.x = np.clip(self.x, -self.limits, self.limits)
-        return self.x * self.weight_array/self.limits
+
+        height_scale_factor = 0.1 + 0.90 * (min(z, 100)/100)**1.2
+        return self.x * self.weight_array/self.limits * height_scale_factor
 
 class HexacopterModel:
     """Hexacopter dynamics model"""
@@ -80,8 +81,8 @@ class HexacopterModel:
         self.crashed = False
 
         # T, Mx, My, Mz
-        turbulence_weights = np.array([0.15, 0.15, 0.3, 0.6, 0.6, 0.4])
-        turbulence_limits = np.ones_like(turbulence_weights)*0.7
+        turbulence_weights = np.array([0.15, 0.15, 0.2, 0.2, 0.2, 0.15])
+        turbulence_limits = np.ones_like(turbulence_weights)*0.8
         self.disturbance = DisturbanceModel(turbulence_weights, turbulence_limits)
 
     # Hexacopter dynamics
@@ -166,7 +167,7 @@ class HexacopterModel:
         omega_rotors = np.sqrt(thruster_inputs / self.b)
 
         # kinematic model
-        disturbance = self.disturbance.get_disturbance(dt)
+        disturbance = self.disturbance.get_disturbance(dt, state[2])
 
         state_dot = self.hexacopter_dynamics(state, omega_rotors, inputs)
         state_dot[6:] += disturbance

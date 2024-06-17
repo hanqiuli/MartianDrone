@@ -16,6 +16,7 @@ def interp(x, a, b, y_a, y_b):
 
     return factor * (y_a - y_b) + y_b
 
+
 class FlightComputer:
     def __init__(self, speed_target, speed_closing, *, FlightController_args, FlightController_kwargs):
         self.safe_altitude = 100
@@ -23,7 +24,7 @@ class FlightComputer:
         self.speed_target = speed_target
         self.speed_closing = speed_closing
 
-        self.land_speed_low = -0.5
+        self.land_speed_low = -0.3
         self.land_speed_high = -8
 
         self.close_radius = 125
@@ -44,9 +45,14 @@ class FlightComputer:
         velocity_magnitude = np.linalg.norm([xdot, ydot])
         proximity = np.linalg.norm([delta_x, delta_y])
 
+        if False:
+            # Override FlightComputer to hover without positional care
+            self.static_time = max(4.0, self.static_time)
+            return ['attitude', 2]  # axis weight set 2
+        
         # Attitude recovery
         if abs(phi) > max_allowed_angle or abs(theta) > max_allowed_angle:
-            self.static_time = max(10.0, self.static_time)
+            self.static_time = max(4.0, self.static_time)
             return ['attitude', 2]  # axis weight set 2
         
         # Landing
@@ -54,8 +60,8 @@ class FlightComputer:
             return ['land', 1]
             
         # Unexpectedly low/climbing
-        if z < 40:
-            self.static_time = max(20.0, self.static_time)
+        if z < 20:
+            self.static_time = max(5.0, self.static_time)
             return ['climb', 1]
 
         # Altitude recovery
@@ -108,7 +114,7 @@ class FlightComputer:
 
             b = self.land_radius*2
             a = self.land_radius
-            speed = interp(r, a, b, self.speed_closing/3, self.speed_closing)
+            speed = interp(r, a, b, self.speed_closing/5, self.speed_closing)
             x_dot, y_dot = delta_pos/r * speed
             
             b = self.close_radius

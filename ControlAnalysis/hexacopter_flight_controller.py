@@ -123,9 +123,9 @@ class FlightController:
         self.thruster_range = self.thrust_to_weight_range*self.weight/6
 
         control_axis_weights = [
-            np.array([10, 5, 5, 5]),   # Nominal weights
-            np.array([13, 5, 5, 5]),   # Altitude recovery weights
-            np.array([2, 8, 8, 8])    # Attitude recovery weights
+            np.array([9, 5, 5, 3]),   # Nominal weights
+            np.array([10, 5, 5, 3]),   # Altitude recovery weights
+            np.array([2, 5, 5, 3])    # Attitude recovery weights
         ]
 
         self.inverted_thrust_map = [
