@@ -6,11 +6,11 @@ import math
 import numpy as np
 
 sys.path.append('.')
-from ControlAnalysis.helper_funcs import find_highest_index, plot_figures, simulate, filepath
+from ControlAnalysis.helper_funcs import find_highest_index, plot_figures, plot_figures_new, simulate, filepath
 
 
 if __name__ == "__main__":
-    do_data_analysis = True
+    do_data_analysis = False
     skip_found_files = True
 
     time_step = 0.01  # [s]
@@ -123,10 +123,8 @@ if __name__ == "__main__":
                                                     flight_computer_kwargs=flight_computer_kwargs,\
                                                     model_args=model_args, model_kwargs=model_kwargs)
 
-    print('Plotting...')
-    plot_figures(states, times, setpoints, thruster_values, flight_mode_list, input_array, disturbance)
     print('Plotting final figures...')
-    plot_figures_final(states, times, setpoints, thruster_values, flight_mode_list, input_array, disturbance)
+    plot_figures_new(states, times, setpoints, thruster_values, flight_mode_list, input_array, disturbance, legend_fontsize=10)
 
     
 
