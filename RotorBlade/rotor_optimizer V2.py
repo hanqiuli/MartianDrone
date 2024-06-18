@@ -10,7 +10,7 @@ airfoils = ['Diamond', 'Triangle', 'DEP 0.5', 'DEP 0.7']  # Fixed
 rotor_radius = 1.20
 maximum_alpha = 10
 gravitational_acceleration = 3.71
-mass = 49 # kg
+mass = 48.8547718*1.3 # kg
 small_angle_approximation = False
 ######################################
 
@@ -52,13 +52,16 @@ def power_constraint(params):
     )
     calculate_blade_properties(blade)
 
+    linear_line = np.linspace(12000, 30000, len(blade.reynolds))
+    max_deviation = np.max(blade.reynolds - linear_line)
 
-    return blade.thrust_rotor, (blade.thrust_coefficient_rotor / blade.solidity_rotor), blade.solidity_rotor, max(blade.reynolds), min(blade.reynolds), blade.power_rotor
+
+    return blade.thrust_rotor, (blade.thrust_coefficient_rotor / blade.solidity_rotor), blade.solidity_rotor, blade.power_rotor, max_deviation, chord_params[0] - chord_params[1]
 
 
 
-lb = [mass*gravitational_acceleration/6, -np.inf, -np.inf, -np.inf, -np.inf, 0]
-ub = [np.inf, 0.16, 0.25, 25000, 10000, np.inf]
+lb = [mass*gravitational_acceleration/6, -np.inf, -np.inf, 0, -np.inf, -np.inf]
+ub = [np.inf, 0.16, 0.2, np.inf, 0, 0]
 
 # Create a NonlinearConstraint object to enforce positive power_rotor
 nonlinear_constraint = NonlinearConstraint(power_constraint, lb, ub)
@@ -67,7 +70,7 @@ nonlinear_constraint = NonlinearConstraint(power_constraint, lb, ub)
 # Set the bounds for pitch and chord parameters
 bounds = [
     (0.05, 0.3), (0.05, 0.3), (-0.5, -0.05),  # Pitch parameters
-    (0.0, 2*radial_stations[0] * np.tan(np.pi / number_of_blades)), (0.0, 2*radial_stations[1] * np.tan(np.pi / number_of_blades)), (0.0, 2*radial_stations[2] * np.tan(np.pi / number_of_blades)), (0.0, 2*radial_stations[3] * np.tan(np.pi / number_of_blades))  # Chord parameters
+    (0.08, 2*radial_stations[0] * np.tan(np.pi / number_of_blades)), (0.08, 2*radial_stations[1] * np.tan(np.pi / number_of_blades)), (0.08, 2*radial_stations[2] * np.tan(np.pi / number_of_blades)), (0.0, 2*radial_stations[3] * np.tan(np.pi / number_of_blades))  # Chord parameters
 ]
 
 # Differential Evolution optimization
@@ -77,6 +80,7 @@ optimal_params = result.x
 optimal_pitch_params = optimal_params[:3]
 optimal_chord_params = optimal_params[3:7]
 
+print(result.message)
 print("Optimal Pitch Parameters:", ', '.join(map(str, optimal_pitch_params)))
 print("Optimal Chord Parameters:", ', '.join(map(str, optimal_chord_params)))
 print("Minimum power:", result.fun)
