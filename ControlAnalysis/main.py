@@ -125,6 +125,9 @@ if __name__ == "__main__":
 
     print('Plotting...')
     plot_figures(states, times, setpoints, thruster_values, flight_mode_list, input_array, disturbance)
+    print('Plotting final figures...')
+    plot_figures_final(states, times, setpoints, thruster_values, flight_mode_list, input_array, disturbance)
+
     
 
     if do_data_analysis:

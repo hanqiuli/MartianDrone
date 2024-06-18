@@ -77,7 +77,7 @@ if __name__ == '__main__':
     # binning plots of r_final compared to mass
     plt.hist(r_full[crashed_full], bins=50, density=True, label='r/mass')
     continuous_kde = scipy.stats.gaussian_kde(r_full[crashed_full])
-    r_steps = np.arange(0, 2, 0.0001)
+    r_steps = np.arange(0, 1, 0.0001)
     plt.plot(r_steps, continuous_kde(r_steps))
-    plt.show()
+    plt.savefig('ControlAnalysis/Figures/histo.png')
 
