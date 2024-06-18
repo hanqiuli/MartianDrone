@@ -6,6 +6,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
+import scienceplots
 
 # Local imports
 # from environment_properties import ENV
@@ -38,12 +39,16 @@ cell_max_charge_rate = 0.7 #0.7C max charge rate
 #Get shapes to match
 empty_list = [0,0,0,0,0,0]
 power_generation_profile = np.append(power_generation_profile, empty_list)
-power_available_profile = power_generation_profile*battery_efficiency*(1-harness_loss)
+power_available_profile = power_generation_profile*battery_efficiency*(1-harness_loss)*0.97
+
+print('max_power_generation', np.max(power_generation_profile))
 
 net_power_profile = power_available_profile - power_usage_profile
 
 #Plot the net power profile
 time_series = np.linspace(0,2*time_mars_day,2*time_mars_day)
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
 plt.plot(time_series, net_power_profile)
 plt.title('Net power profile over a 2 day mission')
 plt.xlabel('Mission timeline [s]')
@@ -70,6 +75,9 @@ zero_soc_index = np.argmin(energy_state_profile)
 inital_soc = -energy_state_profile[zero_soc_index]
 soc_profile = inital_soc + energy_state_profile
 soc_profile_Wh = soc_profile/3600
+
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
 plt.plot(time_series, soc_profile_Wh)
 plt.title('State of Charge of the battery over a 2 day mission')
 plt.xlabel('Mission timeline [s]')
@@ -78,10 +86,16 @@ plt.show()
 
 #Convert SOC profile to a battery charge percentage[%]
 soc_percentage = (soc_profile)/(battery_capacity)*100
-plt.plot(time_series, soc_percentage)
-plt.title('Percentage State of Charge of the battery over a 2 day mission (from the usable capacity)')
-plt.xlabel('Mission timeline [s]')
+soc_percentage_rescaled = [10+ (soc*0.8) for soc in soc_percentage]
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
+plt.plot(time_series/3600, soc_percentage_rescaled)
+plt.title('State of Charge profile of the battery over a 2 day mission as a percentage of the total battery capacity')
+plt.xlabel('Mission timeline [hours]')
 plt.ylabel('State of charge of the battery [%]')
+plt.axhline(y=10, color='r', linestyle='--', label='Min SOC (10%)')
+plt.axhline(y=90, color='g', linestyle='--', label='Max SOC (90%)')
+plt.legend()
 plt.show()
 
 #Battery architecture
@@ -106,7 +120,7 @@ power_discharge_max = np.min(net_power_profile)
 required_charge_rate_max = 3600 / (actual_battery_capacity/power_charge_max)
 required_discharge_rate_max = -3600 / (actual_battery_capacity/power_discharge_max)
 print('peak discharge rate [C]', np.round(required_discharge_rate_max,2))
-
+print(required_charge_rate_max)
 if required_charge_rate_max<cell_max_charge_rate and required_discharge_rate_max<cell_max_discharge_rate:
     print('Cell charge performance is acceptable')
 else: 

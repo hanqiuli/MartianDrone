@@ -3,8 +3,8 @@ import numpy as np
 
 # Input Parameters
 n_rotors = 6
-rotor_radius = 1.3  # in meters
-rotor_clearance_percentage = 10  # percentage of rotor radius
+rotor_radius = 1.2  # in meters
+rotor_clearance_percentage = 5  # percentage of rotor radius
 body_radius = 0.7  # in meters
 
 # Calculate rotor clearance

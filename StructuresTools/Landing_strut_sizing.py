@@ -206,14 +206,14 @@ if __name__ == "__main__":
     materials = ['Alloy_1', 'Alloy_2', 'Composite_1', 'Composite_2']
     # material = 'Alloy_1'
     #length = 2.03
-    length = 0.627
+    length = 0.7564
     # F = 46*(1.5**2)*3.71/6
-    W = 208.32 #N
+    W = 181.058 #N
     # theta = 30 * np.pi/180
-    F = 85.367
-    N = 59.68055
+    F = 81.103
+    N = 40.222
 
-    # r_blade = 1.3
+    # r_blade = 1.2
     # M_torsion =3*F*r_blade/20
     # print(F)
     # print(M_torsion)

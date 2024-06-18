@@ -2,6 +2,18 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
+import scienceplots
+plt.style.use('science')
+plt.rcParams.update({'text.usetex': False})
+
+from matplotlib.image import imread
+from matplotlib.colors import LinearSegmentedColormap
+img = imread("C:/Users/sebas/Downloads/image.png")
+# img is 30 x 280 but we need just one col
+colors_from_img = img[:, 30, :]
+# commonly cmpas have 256 entries, but since img is 280 px => N=280
+my_cmap = LinearSegmentedColormap.from_list('my_cmap', colors_from_img, N=40)
+my_cmap = my_cmap.reversed()
 
 class DataGathering:
     def __init__(self, file_name):
@@ -17,6 +29,7 @@ class DataGathering:
         time_line = lines[11].strip()
         time_axis = time_line.split("||")[1].split()
         time_axis = [float(time) for time in time_axis]
+        self.time_axis = time_axis
 
         # Extract data
         data_lines = lines[13:]
@@ -30,7 +43,12 @@ class DataGathering:
 
         # Convert to numpy arrays
         days = np.array(days)
+        self.days = days
         property = np.array(property)
+        self.property = property
+        
+        self.interp_days = np.arange(min(self.days), max(self.days), 1)
+        self.interp_time = np.arange(min(self.time_axis), max(self.time_axis), 1/12)
 
         return property, time_axis, days   
     
@@ -46,37 +64,27 @@ class DataGathering:
         """
         interp = RegularGridInterpolator((self.days, self.time_axis), self.property, method='cubic')
 
-        self.create_interpolator()  # Ensure interpolator is created
-        np.meshgrid((new_days, new_time_axis), indexing='ij', sparse=True)
+        # Create the grid of points where we want to interpolate
+        mesh_new_days, mesh_new_time_axis = np.meshgrid(new_days, new_time_axis, indexing='ij')
+        points = np.array([mesh_new_days.ravel(), mesh_new_time_axis.ravel()]).T
 
-        return self.interpolator((new_days, new_time_axis))  # Perform interpolation
+        # Perform interpolation
+        interpolated_values = interp(points).reshape(len(new_days), len(new_time_axis))
+        return interpolated_values
 
-
-    def plot_data(self, title='Data Plot', xlabel='X-axis', ylabel='Y-axis', cmap='seismic'):
+    def plot_data(self, propertylabel='Property [?]', xlabel='X-axis', ylabel='Y-axis', cmap='coolwarm'):
         '''Plot the given data'''
-        self.create_interpolator()  # Ensure interpolator is created
-        interpolated_data = self.interpolate_data(self.days, self.time_axis)  # Interpolate data
-
-        plt.contourf(interpolated_data.T, cmap=cmap, interpolation='cubic', levels=20)
-        plt.yticks(range(len(self.time_axis)), self.time_axis, size='small')
-        plt.xticks(range(len(self.days)), self.days, size='small', rotation=90)
-        plt.colorbar()
+        print(self.property)
+        plt.figure(figsize=(5, 4))
+        plt.contourf(self.property.T, cmap=my_cmap, levels=40)
+        plt.yticks(range(25)[::4], self.time_axis[::4], size='small')
+        plt.xticks(range(25)[::3], self.days[::3], size='small', rotation=90)
+        plt.colorbar(label=propertylabel)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        plt.title(title)
-        plt.show()
-    
-    # def plot_data(self, title='Data Plot', xlabel='X-axis', ylabel='Y-axis', cmap='seismic'):
-    #     '''Plot the given data'''
-    #     plt.contourf(self.property.T, cmap=cmap, interpolation='cubic', levels=20)
-    #     plt.yticks(range(len(self.time_axis)), self.time_axis, size='small')
-    #     plt.xticks(range(len(self.days)), self.days, size='small', rotation=90)
-    #     plt.colorbar()
-    #     plt.xlabel(xlabel)
-    #     plt.ylabel(ylabel)
-    #     plt.title(title)
-    #     plt.show()
-    
+        plt.tight_layout()
+        plt.savefig('EnvironmentalPropertyTools/plots/'+data_file+'.pdf')
+        # plt.show()
 
     def find_extreme_day(self, extreme='max'):
         """Finds the day with extreme average temperature
@@ -84,9 +92,11 @@ class DataGathering:
         Returns:
             tuple: (extreme_average_temperature, day_data, day_index)
         """
+        
         # Calculate daily average temperature
-
-        daily_average_property = np.mean(self.property, axis=0)
+        interpolated_data = self.interpolate_data(self.interp_days, self.interp_time)
+        interpolated_data = np.maximum(interpolated_data,0)
+        daily_average_property = np.mean(interpolated_data,axis=1)
 
         if extreme.lower() == 'max':
             # Find the day with maximum average temperature day
@@ -96,20 +106,21 @@ class DataGathering:
             day_index = np.argmin(daily_average_property)
         else:
             raise ValueError("extreme should be either 'max' or 'min'")
-
         # Extract data for the day with minimum average temperature
-        day_data = self.property[:, day_index]
+        day_data = interpolated_data[day_index, :]
         extreme_average = daily_average_property[day_index]
-        return extreme_average, day_data, self.days[day_index]
+        return extreme_average, day_data, self.interp_days[day_index]
 
-# Example usage
-dg = DataGathering("EnvironmentalPropertyTools/data/1m/temperature_1m.txt")  # Replace with your data file name
-min_temp, day_data, day_index = dg.find_extreme_day("min")
+data_file = "temperature_1m"
+# Data file
+dg = DataGathering("EnvironmentalPropertyTools/data/"+data_file+'.txt')  # Replace with your data file name
 
-print(f"Day with minimum average temperature: {day_index} deg")
-print(f"Minimum average temperature: {min_temp} K")
-print(f"Data for the day: {day_data}")
+extreme = "min"
+min_property, day_data, day_index = dg.find_extreme_day(extreme)
+
+print(f"Day with {extreme} average property: {day_index} deg")
+print(f"Average property: {min_property}")
+print(f"Data for the day: {repr(day_data)}")
 
 temp, time, days = dg.get_data()
-# print(dg.days)
-dg.plot_data(title='Temperature [K]', xlabel='Martian Day', ylabel='Martian Time [h]')
+dg.plot_data(propertylabel='Temperature at $100m$ [$K$]', xlabel='Areocentric longitude [deg]', ylabel='Local Time [Martian hour]')

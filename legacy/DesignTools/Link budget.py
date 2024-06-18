@@ -1,5 +1,5 @@
 import numpy as np
-from Data_budget import data
+#from Data_budget import data
 import matplotlib.pyplot as plt
 
 def dB(n):
@@ -7,25 +7,25 @@ def dB(n):
 
 
 
-DR, table = data()
+DR =  1.34136e+07
 Pt = 1  #W  transmitting power
 f = 12      #GHz  transmitting frequency
 lambd = 3*10**8/(f*10**9)
 B = DR/2/1  #bandwith [Hz]
-R = 20     #km
+R = 4.4     #km
 Ll = 0.8   #Link loss
-Gt = 10     #transmission gain
+Gt = 1     #transmission gain
 EIRP = Pt * Ll * Gt
 La = 10**(-4)*R #dB
 Ls = 147.55 - 2*dB(R*1000) - 2*dB(f*10**(9)) #space loss [dB]
 Ts = 10**(27.4/10) #system noise T [K]
 
 Kb = 1.380*10**(-23)
-D_rec = 0.5
+D_rec = 0.1
 A_rec = np.pi*(D_rec/2)**2
 n_rec = 0.7
 Gr = np.pi**2*D_rec**2*n_rec / lambd
-Gr = 10
+Gr = 1
 print(10**(La/10), Ts)
 Wf = EIRP * 4*np.pi*R**2
 C = Wf * A_rec * n_rec
@@ -36,7 +36,7 @@ CN_min = 100*DR
 print(CN_min)
 
 C_N = Pt*Gt*(lambd/(4*np.pi*R*1000))**2*(Gr/Ts)*1/Kb
-
+print(f'Received Power-to-Noise ratio is: {C_N}')
 #range = 4*np.pi/lambd * np.sqrt((Pt*Gt*(Gr/Ts))/(CN_min*Kb))
 #print(range)
 

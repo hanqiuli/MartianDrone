@@ -28,7 +28,7 @@ max_current_communication = 0
 max_current_TCS = 0
 
 #Subsystems relative position from battery
-cable_length_motors = 1.82 #Length of propeller arms [m]
+cable_length_motors = 1.76 #Length of propeller arms [m]
 cable_length_payload = 0
 cable_length_communication = 0
 cable_length_TCS = 0

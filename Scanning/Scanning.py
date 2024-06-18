@@ -30,18 +30,32 @@ class Scanning:
 
 
         self.MS = {
-            'pixels': 5 * 10 ** (6),
-            'ratio': 4 / 3,
+            'pixels': 512*512,
+            'ratio': 1,
             # rx_hor = int(pxls*4/7)
             # rx_ver = int(pxls*3/7)
-            'rx_hor': 2592,
-            'rx_ver': 1944,
-            'angular_vof_h': np.deg2rad(61.2),
-            'angular_vof_v': np.deg2rad(48.10),
-            'focal_length': 4.34,  # focal length mm
-            'sensor_width': 5.2,
-            'sensor_length': 3.9,
+            'rx_hor': 512,
+            'rx_ver': 512,
+            'angular_vof_h': np.deg2rad(79.7),
+            'angular_vof_v': np.deg2rad(79.7),
+            'focal_length': 8,  # focal length mm
+            'sensor_width': 10.24,
+            'sensor_length': 10.24,
             'exposure_time': 1/12800
+        }
+        self.RGB = {
+            'pixels': 5*10**6,
+            'ratio': 2448/2048,
+            # rx_hor = int(pxls*4/7)
+            # rx_ver = int(pxls*3/7)
+            'rx_hor': 2448,
+            'rx_ver': 2048,
+            'angular_vof_h': np.deg2rad(102.4),
+            'angular_vof_v': np.deg2rad(82.3),
+            'focal_length': 3.5,  # focal length mm
+            'sensor_width': 6.71,
+            'sensor_length': 5.61,
+            'exposure_time': 1 / 12800
         }
         return
 
@@ -78,17 +92,22 @@ class Scanning:
 
 def main():
     scanning = Scanning()
-    birds_eye = [100, 34, 1000**2]
+    birds_eye = [100, 38, 1000**2]
     validate = [217, 15, 200*10000]
     close_up = [10, 2.5, 25**2]
+
     def total_scan_time():
-        scan_dict_MP_high = scanning.scanning(*birds_eye, scanning.MP)
+        scan_dict_MP_high = scanning.scanning(*birds_eye, scanning.RGB)
         scan_dict_MS_high = scanning.scanning(*birds_eye, scanning.MS)
+        print(scan_dict_MP_high)
+        print(scan_dict_MS_high)
         scan_dict_birds_eye = dict.fromkeys(scan_dict_MP_high.keys(), 0)
         for key in scan_dict_birds_eye:
             scan_dict_birds_eye[key] = max(scan_dict_MP_high[key], scan_dict_MS_high[key])
-        scan_dict_MP_low = scanning.scanning(*close_up, scanning.MP)
+        scan_dict_MP_low = scanning.scanning(*close_up, scanning.RGB)
         scan_dict_MS_low = scanning.scanning(*close_up, scanning.MS)
+        print(scan_dict_MP_low)
+        print(scan_dict_MS_low)
         scan_dict_close_up = dict.fromkeys(scan_dict_MP_low.keys(), 0)
         for key in scan_dict_close_up:
             scan_dict_close_up[key] = max(scan_dict_MP_low[key], scan_dict_MS_low[key])

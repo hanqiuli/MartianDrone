@@ -35,20 +35,21 @@ def get_data(file_name):
 
     return property, time_axis, days
 
-y = get_data("Ratio_Specific_Heats_100m.txt")[0]
-R = get_data("Molecular_Gas_Constant_100m.txt")[0]
-T = get_data("Temperature_100m.txt")[0]
-time_axis = get_data("Ratio_Specific_Heats_100m.txt")[1]
-days = get_data("Ratio_Specific_Heats_100m.txt")[2]
-a = np.sqrt(y*R*T)
+if __name__ == '__main__':
+    y = get_data("Ratio_Specific_Heats_100m.txt")[0]
+    R = get_data("Molecular_Gas_Constant_100m.txt")[0]
+    T = get_data("Temperature_100m.txt")[0]
+    time_axis = get_data("Ratio_Specific_Heats_100m.txt")[1]
+    days = get_data("Ratio_Specific_Heats_100m.txt")[2]
+    a = np.sqrt(y*R*T)
+    print(T)
+    df = pd.DataFrame(a, columns=days,index=time_axis)
 
-df = pd.DataFrame(a, columns=days,index=time_axis)
-
-plt.imshow(df, cmap='seismic', interpolation='nearest')
-plt.yticks(range(len(time_axis)), time_axis, size='small')
-plt.xticks(range(len(days)), days, size='small', rotation=90)
-plt.colorbar()
-plt.xlabel('Martian Day')
-plt.ylabel('Martian Time [h]')
-plt.title('Speed of Sound [m/s]')
-plt.show()
+    plt.imshow(df, cmap='seismic', interpolation='nearest')
+    plt.yticks(range(len(time_axis)), time_axis, size='small')
+    plt.xticks(range(len(days)), days, size='small', rotation=90)
+    plt.colorbar()
+    plt.xlabel('Martian Day')
+    plt.ylabel('Martian Time [h]')
+    plt.title('Speed of Sound [m/s]')
+    plt.show()

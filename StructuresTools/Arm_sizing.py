@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-from SE_data import SEData, data_path, backup_path  
+from SETools.SE_data import SEData, data_path, backup_path
 from scipy.spatial import ConvexHull
 
 data = SEData(data_path, backup_path)
@@ -199,16 +199,15 @@ class Arm():
     #     return n*np.pi**2*self.E*MoI/self.length**2 #[N]
         
     
-
+    def torsional_stress(self,M_torsion):
+        return M_torsion/(2*0.001*self.Amean)
 
 if __name__ == "__main__":
     materials = ['Alloy_1', 'Alloy_2', 'Composite_1', 'Composite_2']
-    #length = 2.03
-    length = 0.627
-    # F = 46*(1.5**2)*3.71/6
-    F = 85.4
-    # r_blade = 1.3
-    # M_torsion =3*F*r_blade/20
+    length = 1.76
+    F = 48.67162*(1.5**2)*3.71/6 #1.5 lift + 1.5 safety factor
+    r_blade = 1.2
+    M_torsion =3*F*r_blade/20
     print(F)
     print(M_torsion)
     
@@ -330,10 +329,10 @@ for material in materials:
     arm = Arm(material, 'hollow_rectangle', length, outer_width=0.1, inner_width=0.08, outer_height=0.1, inner_height=0.08)
 
     # Define the range for the loops
-    outer_width_range = np.arange(0.01, 0.10, 0.01)
-    inner_width_range = np.arange(0.01, 0.10, 0.001)
-    outer_height_range = np.arange(0.01, 0.10, 0.01)
-    inner_height_range = np.arange(0.01, 0.10, 0.001)
+    outer_width_range = np.arange(0.02, 0.10, 0.01)
+    inner_width_range = np.arange(0.02, 0.10, 0.002)
+    outer_height_range = np.arange(0.02, 0.10, 0.01)
+    inner_height_range = np.arange(0.02, 0.10, 0.002)
 
     # Calculate the total number of iterations for the progress bar
     total_iterations = sum(1 for i in outer_width_range for j in inner_width_range if i >j for k in outer_height_range for l in inner_height_range if k > l)
@@ -348,8 +347,13 @@ for material in materials:
                         for l in inner_height_range:
                             if k > l+2*t_min:   
                                 hollowrectarm = Arm(material, 'hollow_rectangle', length, outer_width=i, inner_width=j, outer_height=k, inner_height=l)
-                                if hollowrectarm.m < 10 and hollowrectarm.calculate_deflection(F, axis='x', type='point') < 0.5 \
-                                    and hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi < 10 and hollowrectarm.tensile_stress_bending(F, direction = 'x')*1.5 < hollowrectarm.sigma_y:
+                                condition_1 = hollowrectarm.m < 10
+                                condition_2 = hollowrectarm.calculate_deflection(F, axis='x', type='point') < 0.005
+                                condition_3 = hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi < 0.1
+                                condition_4 = hollowrectarm.tensile_stress_bending(F, direction = 'x')*1.5 < hollowrectarm.sigma_y
+                                #condition_5 = hollowrectarm.torsional_stress(M_torsion) < 
+                                if condition_1 and condition_2 \
+                                    and condition_3 and condition_4:
                                         new_row = pd.DataFrame({'outer_width': [i], 'inner_width': [j], 'outer_height': [k], 'inner_height': [l], 'mass': [hollowrectarm.m], 'deflection': [hollowrectarm.calculate_deflection(F, axis='x', type='point')],\
                                                                  'rotation': [hollowrectarm.calculate_torsion_deflection(M_torsion)*180/np.pi], 'Iy': [hollowrectarm.Iy], 'Ix': [hollowrectarm.Ix], 'A': [hollowrectarm.A], 'm': [hollowrectarm.m], 'j': [hollowrectarm.j],\
                                                                       'sigma_y': [hollowrectarm.tensile_stress_bending(F, direction = 'x')], 'embodied_energy': [hollowrectarm.embodied_energy], 'material': [material]})
@@ -364,8 +368,8 @@ configurations['norm_rotation'] = (configurations['rotation'] - configurations['
 configurations['norm_embody'] = (configurations['embodied_energy'] - configurations['embodied_energy'].min()) / (configurations['embodied_energy'].max() - configurations['embodied_energy'].min())
 # Define weights for each parameter
 weight_mass = 3.0
-weight_deflection = 2.0
-weight_rotation = 1.0
+weight_deflection = 0.0
+weight_rotation = 0.0
 weight_embody = 0
 
 # Calculate the composite score
