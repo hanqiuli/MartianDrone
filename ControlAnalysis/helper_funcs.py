@@ -413,7 +413,7 @@ def plot_figures_new(states, times, setpoints, thruster_values, flight_mode_list
     plt.plot(times, np.ones_like(times)*125, 'r--', label='Close range')
     plt.plot(times, np.ones_like(times)*5, 'b--', label='Land range')
     plt.plot(times, np.ones_like(times)*0.4, 'g--', label='Accuracy range')
-    plt.text(times[-1], r[-1], f'r = {round(r[-1], 2)}', fontsize=7, ha='right', color='k', alpha=0.7)
+    plt.text(times[-1], r[-1], f'$r_f$ = {round(r[-1], 2)}', fontsize=7, ha='right', color='k', alpha=0.7)
     print(f'r = {round(r[-1], 2)}')
     plt.xlabel('Time [s]')
     plt.ylabel('Position [m]')

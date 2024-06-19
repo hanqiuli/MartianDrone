@@ -29,21 +29,21 @@ if __name__ == '__main__':
 
     for i in range(i_max):
         try:
-            print(f'flight_data_{i}.npz')
+            #print(f'flight_data_{i}.npz')
             data = np.load(filepath(f'flight_data_{i}.npz', data_path))
+
+            r_final = np.linalg.norm(data['states'][-1, 0:2]-data['setpoints'][-1, 0:2])
+            r_final_array[i] = r_final
+            v_vertical_final[i] = data['states'][-1, 8]
+            file_exists[i] = 1
+            mass_array[i] = data['mass']
+            thruster_array[i, :] = data['thrust']
+            skew_array[i] = data['skew_factor']
+            crashed[i] = data['crashed']
+
         except Exception as e:
             print(e)
             continue
-        
-        
-        r_final = np.linalg.norm(data['states'][-1, 0:2]-data['setpoints'][-1, 0:2])
-        r_final_array[i] = r_final
-        v_vertical_final[i] = data['states'][-1, 8]
-        file_exists[i] = 1
-        mass_array[i] = data['mass']
-        thruster_array[i, :] = data['thrust']
-        skew_array[i] = data['skew_factor']
-        crashed[i] = data['crashed']
 
         # Plot the flight data
         #plot_figures(data['states'], data['times'], data['setpoints'], data['thruster_values'], data['flight_mode_list'], data['input_array'])
@@ -69,15 +69,22 @@ if __name__ == '__main__':
     radius = 10
     print(f"Land percentage                     : {f'{str(np.mean(crashed_full * (r_full < radius))):<{length+1}}'.replace(' ', '0')[0:length]}")
 
-    radius = 0.4
+    radius = 0.377
     print(f"Land percentage accurate            : {f'{str(np.mean(crashed_full * (r_full < radius))):<{length+1}}'.replace(' ', '0')[0:length]}")
     print()
     
+    
 
     # binning plots of r_final compared to mass
-    plt.hist(r_full[crashed_full], bins=50, density=True, label='r/mass')
-    continuous_kde = scipy.stats.gaussian_kde(r_full[crashed_full])
+    plt.figure(figsize=(6,4))
+
+    continuous_kde = scipy.stats.gaussian_kde(r_full[crashed_full]) # type: ignore
     r_steps = np.arange(0, 1, 0.0001)
-    plt.plot(r_steps, continuous_kde(r_steps))
-    plt.savefig('ControlAnalysis/Figures/histo.png')
+    plt.plot(r_steps, continuous_kde(r_steps), label=r'$r_f$, kernel density estimator ')
+    plt.hist(r_full[crashed_full], bins=50, density=True, label=r'$r_f$, 50 bins', alpha=0.3)
+    plt.xlabel(r'$r_f$')
+    plt.ylabel(r'$P(r_f)$')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('ControlAnalysis/Figures/histo.png', dpi=300)
 
