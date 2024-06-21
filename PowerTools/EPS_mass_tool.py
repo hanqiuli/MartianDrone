@@ -17,7 +17,7 @@ from cable_sizing import get_wires_mass
 from solar_array_sizing import get_array_area
 from battery_sizing import get_battery_capacity
 
-#Inputs
+#Inputs 
 mass_array = get_array_mass()
 mass_battery = get_battery_mass()
 mass_wires = get_wires_mass()

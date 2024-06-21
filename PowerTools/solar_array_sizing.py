@@ -52,12 +52,14 @@ average_power_required = get_average_power_mission()
 #Calculate required power generation at BOL conditions (take into account power losses and radiation degradation rate) Note: dust degradation not taken into account
 power_generation_EOL = average_power_required/(battery_efficiency*(1-harness_loss))
 power_generation_BOL = power_generation_EOL / ((1-radiation_degradation_rate)**(mission_lifetime))
+print('required_average_power_generation_EOL',power_generation_EOL)
 print('required_average_power_generation_BOL',power_generation_BOL)
+
 
 #Calculate required solar array area (take into account average flux from MCD (incl. dust), incidence angle, red shift)
 design_solar_flux = average_solar_flux * np.cos(np.radians(design_incidence_angle)) * (1-spectrum_shift_factor)
 array_reference_area = power_generation_BOL / (design_solar_flux * solar_cell_efficiency * active_area_factor) #This is the area of the cells only! (packing not taken into account)
-
+print(array_reference_area)
 #Solar array architecture
 n_cells_series_min = bus_voltage/voltage_per_cell
 n_cells_series = np.ceil(n_cells_series_min)
@@ -156,8 +158,8 @@ print(baseline_power_consumption_profile)
 net_power_generation_yearly_profile_BOL = average_power_generation_yearly_profile_BOL - baseline_power_consumption_profile
 net_power_generation_yearly_profile_EOL = average_power_generation_yearly_profile_EOL - baseline_power_consumption_profile
 
-charge_time_profile_BOL = energy_required_flight/net_power_generation_yearly_profile_BOL
-charge_time_profile_EOL = energy_required_flight/net_power_generation_yearly_profile_EOL
+charge_time_profile_BOL = energy_required_flight_winter/net_power_generation_yearly_profile_BOL
+charge_time_profile_EOL = energy_required_flight_winter/net_power_generation_yearly_profile_EOL
 
 
 plt.style.use('science')
@@ -167,9 +169,9 @@ plt.plot(days, charge_time_profile_EOL/3600, color='orange', label='EOL conditio
 plt.axhline(y=24.6, color='g', linestyle='--', label='Time to charge = 1 Martian day')
 plt.axhline(y=49.2, color='r', linestyle='--', label='Time to charge = 2 Martian days')
 plt.legend()
-plt.title('Charge time variation over a Martian year considering variable thermal power usage and solar flux availability')
-plt.xlabel('Areocentric longitude [degrees]')
-plt.ylabel('Time to replenish energy required for one flight [hours]')
+plt.title('Charge time variation over a Martian year considering variable thermal power usage and solar flux availability', fontsize=16)
+plt.xlabel('Areocentric longitude [degrees]', fontsize=15)
+plt.ylabel('Time to replenish energy required for one flight [hours]', fontsize=15)
 plt.show()
 
 

@@ -51,9 +51,9 @@ profile_power = {
     # 'name': (power [W])
     'propulsive_takeoff': 5682,
     'propulsive_takeoff_with_rock': 5682,
-    'propulsive_cruise': 4268,
-    'propulsive_cruise_with_rock': 4268,
-    'propulsive_scanning': 4268,
+    'propulsive_cruise': 4262,
+    'propulsive_cruise_with_rock': 4262,
+    'propulsive_scanning': 4262,
     'propulsive_landing': 5682,
     'propulsive_landing_with_rock': 5682,
     # 'propulsive_hover': 4500,
@@ -209,11 +209,11 @@ print('design average power [W]', average_power)
 plt.style.use('science')
 plt.rcParams.update({'text.usetex': False})
 plt.plot(time_series_2_day/3600, power_series_2_day, label='power usage')
-plt.title('Power load profile 2 day return mission')
+plt.title('Power load profile 2 day return mission', fontsize=14)
 plt.annotate('Average power usage [W]: '+str(np.round(average_power,2)), (38,300))
 plt.annotate('Energy consumed per day [Wh]: '+str(np.round(mission_energy_2_day/2/3600,2)), (38,500))
-plt.xlabel('Mission duration [hours]')
-plt.ylabel('Power usage [W]')
+plt.xlabel('Mission duration [hours]', fontsize=16)
+plt.ylabel('Power usage [W]', fontsize=16)
 plt.show()
 '''
 Conclusion from this analysis: the 1 day mission profile

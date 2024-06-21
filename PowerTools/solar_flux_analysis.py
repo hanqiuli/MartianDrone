@@ -74,7 +74,6 @@ def get_avg_solar_flux(file_name, plotting:bool = False):
     return days, flux_avg
 
 
-
 filepath_daily_flux = os.path.join('PowerTools/data', 'solar_flux_160deg.txt')
 
 def plot_solar_flux_daily(path):
