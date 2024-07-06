@@ -6,14 +6,8 @@ import scienceplots
 plt.style.use('science')
 plt.rcParams.update({'text.usetex': False})
 
-from matplotlib.image import imread
-from matplotlib.colors import LinearSegmentedColormap
-img = imread("C:/Users/sebas/Downloads/image.png")
-# img is 30 x 280 but we need just one col
-colors_from_img = img[:, 30, :]
-# commonly cmpas have 256 entries, but since img is 280 px => N=280
-my_cmap = LinearSegmentedColormap.from_list('my_cmap', colors_from_img, N=40)
-my_cmap = my_cmap.reversed()
+from colormap import colormap
+my_cmap = colormap()
 
 class DataGathering:
     def __init__(self, file_name):
@@ -111,7 +105,7 @@ class DataGathering:
         extreme_average = daily_average_property[day_index]
         return extreme_average, day_data, self.interp_days[day_index]
 
-data_file = "temperature_1m"
+data_file = "altitude_abov_areoid"
 # Data file
 dg = DataGathering("EnvironmentalPropertyTools/data/"+data_file+'.txt')  # Replace with your data file name
 
@@ -123,4 +117,4 @@ print(f"Average property: {min_property}")
 print(f"Data for the day: {repr(day_data)}")
 
 temp, time, days = dg.get_data()
-dg.plot_data(propertylabel='Temperature at $100m$ [$K$]', xlabel='Areocentric longitude [deg]', ylabel='Local Time [Martian hour]')
+dg.plot_data(propertylabel='Altitude above the areoid (Mars Geoid) [$m$]', xlabel='', ylabel='')

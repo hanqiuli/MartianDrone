@@ -39,7 +39,7 @@ area_total = (h_battery*w_battery*2 + 2*l_battery*w_battery + 2*h_battery*l_batt
 area_top = l_battery*w_battery
 mass_battery = 10.25  # [kg] - Mass of the battery
 capacity_battery = 1100
-emissivity_battery = 0.035
+emissivity_battery = 0.03
 
 # Insulator properties
 thermal_conductivity = 0.035  # [W/m*K] - Thermal conductivity of the insulator (Cork)
@@ -200,7 +200,7 @@ heat_balance_mintemp = {
        3.92262383e-19, 2.55064986e-04, 4.99427945e-04, 7.22386849e-04,
        9.13239671e-04, 1.06128438e-03, 1.15581896e-03, 1.18614137e-03,
        1.14154959e-03, 1.01134159e-03, 7.84815342e-04, 4.51268822e-04]),
-    'absorptivity': 0.2,  # [-] - Absorptance of the battery
+    'absorptivity': 0.23,  # [-] - Absorptance of the battery
     'f_sr': 1,  # [-] - View factor for solar radiation
     'area_top': area_top,  # [m^2] - Top surface area of the battery
 
@@ -211,7 +211,7 @@ heat_balance_mintemp = {
     'stefan_boltzmann_constant': 5.6704e-8,  # [W/m^2*K^4] - Stefan-Boltzmann constant
 
     # battery properties
-    'heat_rate_internal': 25,  # [W] - Heat from internal sources
+    'heat_rate_internal': 20,  # [W] - Heat from internal sources
 
     'coefficient_convection': 1,  # [W/m^2*K] - Convection coefficient
     'area_total': area_total,  # [m^2] - Total surface area of the battery
@@ -575,9 +575,9 @@ class BatteryHeatTransfer:
     This class models the heat transfer of the battery of the Martian battery.
     """
 
-    def __init__(self):
+    def __init__(self, temp_dictionary, heating, extreme):
         # Environmental properties
-        heat_dictionary = heat_balance_maxtemp
+        heat_dictionary = temp_dictionary
         self.temperature_atmosphere = heat_dictionary['temperature_atmosphere']  # [K] - Atmospheric temperature
         self.irradiance_sun = heat_dictionary['irradiance_sun']  # [W/m^2] - Solar irradiance
         self.absorptivity = heat_dictionary['absorptivity']  # [-] - Absorptance of the battery
@@ -607,11 +607,9 @@ class BatteryHeatTransfer:
         self.thickness_insulator_air = heat_dictionary['thickness_insulator_air']  # [m] - Thickness of the insulator
 
         self.temperature_setpoint = 253.15 # [K]  - Temperature minimum
-        self.heating_active = False # - Boolean value indicating if the heating is active
+        self.heating = heating
+        self.extreme = extreme
 
-        self.heat_list = []
-
-    
     def heat_rate_conduction(self, temperature_battery):
         """
         Calculates the heat input due to conduction from the ground to the battery.
@@ -653,12 +651,17 @@ class BatteryHeatTransfer:
         Returns:
             The total heat input from electronics and motor [W].
         """
-        if temperature_battery < self.temperature_setpoint:
-            self.heating_active = True
-        elif temperature_battery > self.temperature_setpoint + 0.5:
+        if self.heating==1:
+            if temperature_battery < self.temperature_setpoint:
+                self.heating_active = True
+            elif temperature_battery > self.temperature_setpoint + 0.5:
+                self.heating_active = False
+        elif self.heating==2:
             self.heating_active = False
-        # self.heating_active = True
-            
+        elif self.heating==3:
+            self.heating_active = True
+        else:
+            raise ValueError("Invalid heating value")
         
         #print(temperature_battery, self.heat_rate_internal * self.heating_active)
         return self.heat_rate_internal * self.heating_active
@@ -742,26 +745,30 @@ class BatteryHeatTransfer:
         """
         Plots the temperature of the battery over time.
         """
-        plt.figure(figsize=(5,4))
         y, t = self.solve_temperature_time()
         t /= 88775/24
-        min_x = t[np.argmin(y)]
-        min_y = np.min(y)
-        plt.scatter(min_x, min_y,c='r', marker="X", label=f'Minimum Temperature: {round(min_y,2)}K')
-        max_x = t[np.argmax(y)]
-        max_y = np.max(y)
-        plt.scatter(max_x, max_y,c='r', label=f'Maximum Temperature: {round(max_y,2)}K')
-        plt.axhline(y = 273+40, linestyle = '--', label='Maximum Allowable Temperature: 313K') 
-        plt.axhline(y = 273-20, linestyle = '-.', label='Minimum Allowable Temperature: 253K') 
-        plt.plot(t, y)
+        # min_x = t[np.argmin(y)]
+        # min_y = np.min(y)
+        # plt.scatter(min_x, min_y,c='r', marker="X", label=f'Minimum Temperature: {round(min_y,2)}K')
+        # max_x = t[np.argmax(y)]
+        # max_y = np.max(y)
+        # plt.scatter(max_x, max_y,c='r', label=f'Maximum Temperature: {round(max_y,2)}K')
+        if self.heating==1:
+            a = 'Heat Controller On'
+        elif self.heating==2:
+            a = 'No Heat'
+        elif self.heating==3:
+            a = 'Constant Heat on'
+        else:
+            raise ValueError("Invalid heating value")
+        
+        plt.plot(t, y, label=f'Battery Temperature with {a} on {self.extreme}')
         plt.xlabel('Local Time [Martian hour]')
         plt.ylabel('Temperature [K]')
         plt.xlim([0, t[-1]])
         plt.xticks(np.arange(0, t[-1], 2))
-        plt.legend(loc='upper right', bbox_to_anchor=(1, 0.85))
-        plt.savefig('ThermalTools/temperature_time.pdf')
-        plt.show()
-        plt.plot(t, y)
+        # plt.savefig('ThermalTools/temperature_time.pdf')
+        # plt.show()
         pass
 
 
@@ -786,8 +793,24 @@ def main1():
     print(f"Equilibrium temperature of the battery: {equilibrium_temp}")
 
 def main2():
-    battery = BatteryHeatTransfer()
-    equilibrium_temp = battery.plot_temp_time()
+    plt.figure(figsize=(7,4))
+    # battery1 = BatteryHeatTransfer(heat_balance_mintemp, 1)
+    # battery2 = BatteryHeatTransfer(heat_balance_mintemp, 2)
+    battery3 = BatteryHeatTransfer(heat_balance_mintemp, 2,"Coldest Day")
+    battery4 = BatteryHeatTransfer(heat_balance_maxtemp, 2,"Hottest Day")
+
+    # battery1.plot_temp_time()
+    # print(1)
+    # battery2.plot_temp_time()
+    # print(2)
+    battery3.plot_temp_time()
+    battery4.plot_temp_time()
+
+    plt.axhline(y = 273+40, linestyle = '--', label='Maximum Allowable Temperature: 313K') 
+    plt.axhline(y = 273-20, linestyle = '-.', label='Minimum Allowable Temperature: 253K')
+    plt.legend(loc='upper left', bbox_to_anchor=(0.05, 0.92))
+    plt.savefig('ThermalTools/plots/battery_temperatureeeee.pdf')
+    # plt.show()
 
 if __name__ == "__main__":
     main2()

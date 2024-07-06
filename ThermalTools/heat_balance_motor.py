@@ -34,7 +34,7 @@ dyn_vsc_air = 1.3767785e-05      # Air dynamic viscosity [Pa*s]
 temp_amb = 268.59            # Ambient temperature [K]
 cp_air = 826.26587           # Specific heat capacity of air [J/(kg*K)]
 
-
+emissivity = 0.92            # Motor emissivity [-]
 k_air = 14.7e-3              # Air thermal conductivity [W/(m*K)]
 
 kinematic_air_viscosity = dyn_vsc_air / rho_air  # Kinematic viscosity [m^2/s]
@@ -43,14 +43,14 @@ class FinParameters:
     def __init__(self,num_fins=12):
         # Rotorcraft parameters
         self.num_rotors = 6            # Number of rotors [-]
-
+        self.emissivity_motor = emissivity    # Motor emissivity [-]
         # Motor parameters
         self.heat_capacity_motor = 900.0  # Motor specific heat capacity [J/(kg*K)]
         self.conductivity_motor = 209.0   # Motor thermal conductivity [W/(m*K)]
         self.diameter_motor = 0.06        # Motor diameter [m]
         self.velocity_downwash_rotor = 15  # Rotor downwash velocity [rad/s]
 
-        self.height_fin = 0.15             # Fin height [m]
+        self.height_fin = 0.15            # Fin height [m]
         self.rotrate = 151.083             # Rotational rate [rad/s]
         self.velocity_swirl = self.velocity_downwash_rotor**2 * (2*self.rotrate*(self.height_fin+self.diameter_motor))/((self.rotrate*(self.height_fin+self.diameter_motor))**2 + 2**(1/2)*self.velocity_downwash_rotor**2)  # Swirl velocity [m/s]
         print("Swirl velocity: ", self.velocity_swirl)
@@ -60,7 +60,7 @@ class FinParameters:
 
         self.length_fin = 0.051/np.cos(self.flow_angle)          # Fin length [m]
         print("fin length: ", self.length_fin)
-        self.thickness_fin = 0.0024         # Fin thickness [m]
+        self.thickness_fin = 0.0022         # Fin thickness [m]
         self.num_fins = num_fins           # Number of fins [-]
         self.density_fin = 2700            # Fin density [kg/m^3]
 
@@ -83,8 +83,8 @@ class FinParameters:
         B21 = 1.0
         max_iterations = 1000
         tolerance = 1e-6
-        eps2 = 0.95  # Fin emissivity
-        eps1 = 0.95  # Fin emissivity
+        eps2 = self.emissivity_motor  # Fin emissivity
+        eps1 = self.emissivity_motor  # Fin emissivity
         F12 = 1 - np.sin((self.spacing_fin) / (self.diameter_motor) * 0.5)
         F21 = F12
 
@@ -119,11 +119,13 @@ class FinParameters:
     def calc_nusselt_number(self):
         """Calculate the Nusselt number."""
         self.nusselt_number = 0.664 * self.calc_reynolds_num() ** 0.5 * self.calc_prandtl_num() ** (1 / 3)
+        # print('Nusselt number: ', self.nusselt_number)
         return self.nusselt_number
 
     def calc_coefficient_convection(self):
         """Calculate the convective heat transfer coefficient."""
         self.coefficient_convection = self.calc_nusselt_number() * k_air / self.length_fin
+        # print('Convection coefficient: ', self.coefficient_convection)
         return self.coefficient_convection
 
     def calc_efficiency_fin(self):
@@ -134,11 +136,13 @@ class FinParameters:
         denominator_1 = self.calc_coefficient_convection() * self.area_fin
         denominator_2 = 1 + self.calc_coefficient_convection() / (const * self.conductivity_motor) * np.tanh(const * self.height_fin)
         self.efficiency_fin = numerator_1 / denominator_1 * numerator_2 / denominator_2
+        print('Efficiency of the fin: ', self.efficiency_fin)
         return self.efficiency_fin
 
     def calc_thermal_resistance(self):
         """Calculate the thermal resistance."""
         self.thermal_resistance = 1 / (self.calc_coefficient_convection() * (self.calc_efficiency_fin() * self.num_fins * self.area_fin + self.area_unfinned))
+        print('Convective transfer: ', self.calc_coefficient_convection())
         return self.thermal_resistance
     
     def calc_area_effective(self):
@@ -156,6 +160,14 @@ area_total = fins.calc_area_effective()
 area_top = fins.area_fin_crosssection_total
 thermal_resistance = fins.calc_thermal_resistance()
 f_re = 1-fins.calculate_gebhart()
+
+# fin_mass = 0
+# fin_mass_total = 0
+# area_top = (0.06/2)**2*np.pi
+# area_total = area_top + (0.06*np.pi*0.15)
+# thermal_resistance = 1/0.15
+# f_re = 1
+
 
 time_n = 45*2+1000+600
 prop_power = np.ones(time_n)
@@ -185,7 +197,7 @@ heat_balance_hot = {
     'coefficient_resistance': thermal_resistance,  # [K/W] - Thermal Resistance
     'area_total': area_total,  # [m^2] - Total surface area of the motor
     'f_re': f_re,  # [-] - View factor for emitted radiation
-    'emissivity_motor': 0.95,  # [-] - Emissivity of the motor
+    'emissivity_motor': emissivity,  # [-] - Emissivity of the motor
     'motor_mass': 0.65+fin_mass,  # [kg] - Mass of the motor
     'motor_heat_capacity': 1100,  # [J/kg*K] - Heat capacity of the motor
 
